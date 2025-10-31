@@ -1,0 +1,26 @@
+with-expecter: true
+packages:
+  shb/pkg/external/fs:
+    config:
+      all: true
+      dir: "pkg/mocks/fs"
+  shb/internal/services:
+    config:
+      all: true
+      dir: "pkg/mocks/repository"
+  shb/pkg/db/cache:
+    config:
+      all: true
+      dir: "pkg/mocks/cache"
+  shb/pkg/external/sms:
+    config:
+      all: true
+      dir: "pkg/mocks/sms"
+  shb/pkg/rateLimiter:
+    config:
+      all: true
+      dir: "pkg/mocks/rateLimiter"
+  shb/pkg/tokens:
+    config:
+      all: true
+      dir: "pkg/mocks/tokens"

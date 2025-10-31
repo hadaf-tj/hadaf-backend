@@ -1,0 +1,106 @@
+openapi: 3.0.3
+info:
+  title: shb API
+  version: 1.0.0
+  contact:
+    name: shb Support
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Сервер разработки
+  - url: https://localhost:8000
+    description: Root server
+
+tags:
+  - name: Health
+    description: Проверка состояния сервиса
+
+paths:
+  /ping:
+    get:
+      tags:
+        - Health
+      summary: Проверка состояния сервиса
+      description: Простой эндпоинт для проверки работоспособности API
+      responses:
+        '200':
+          description: Сервис работает
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "pong"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT токен доступа. Добавьте токен в заголовок Authorization в формате:
+        `Authorization: Bearer <token>`
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Success"
+        payload:
+          type: object
+          description: Данные ответа
+      required:
+        - message
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "service temporarily unavailable"
+
+    BadRequestError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "invalid request body"
+
+    UnauthorizedError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "invalid OTP"
+
+    ForbiddenError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "access denied"
+
+    UnprocessableError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "validation failed"
+
+    TooManyRequestsError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "phone number is temporarily blocked due to too many requests"
+
+security:
+  - BearerAuth: []
