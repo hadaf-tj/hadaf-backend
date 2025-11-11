@@ -98,7 +98,7 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 		return
 	}
 
-	response, err := h.service.ConfirmOTPAndIssueToken(ctx, in.Receiver, in.OTP)
+	response, err := h.service.ConfirmOTP(ctx, in.Receiver, in.OTP)
 	if err != nil {
 		logger.Error().Err(err).Str("receiver", in.Receiver).Msg("service.ConfirmOTPAndIssueToken error")
 		h.handleError(c, err)

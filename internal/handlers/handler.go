@@ -19,8 +19,8 @@ import (
 type IService interface {
 	// SendOTP отправляет OTP на указанный номер телефона.
 	SendOTP(ctx context.Context, receiver string) (int, error)
-	// ConfirmOTPAndIssueToken проверяет OTP и выдаёт токен при успешной верификации.
-	ConfirmOTPAndIssueToken(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
+	// ConfirmOTP проверяет OTP и выдаёт токен при успешной верификации.
+	ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
 	// Login проверяет логин и пароль, выдаёт токен при успешной верификации.
 	Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
 }

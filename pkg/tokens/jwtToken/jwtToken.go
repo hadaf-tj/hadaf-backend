@@ -28,28 +28,28 @@ func NewJwtTokenIssuer() *JwtTokenIssuer {
 	}
 }
 
-func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, user *models.User) (string, string, error) {
+func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, id int) (string, string, error) {
 	now := time.Now().UTC()
 
 	accessClaims := models.CustomClaims{
-		UserID: user.ID,
+		UserID: id,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   constants.AccessSubject,
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.accessTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
-			ID:        fmt.Sprintf("uid:%d", user.ID),
+			ID:        fmt.Sprintf("uid:%d", id),
 		},
 	}
 
 	refreshClaims := models.CustomClaims{
-		UserID: user.ID,
+		UserID: id,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   constants.RefreshSubject,
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.refreshTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
-			ID:        fmt.Sprintf("uid:%d", user.ID),
+			ID:        fmt.Sprintf("uid:%d", id),
 		},
 	}
 

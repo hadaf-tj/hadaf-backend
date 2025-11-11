@@ -39,7 +39,7 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 	return int(s.cfg.Security.OTPDuration.Seconds()), nil
 }
 
-func (s *Service) ConfirmOTPAndIssueToken(ctx context.Context, phone, otp string) (*models.TokenResponse, error) {
+func (s *Service) ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error) {
 	otpDB, err := s.repo.GetOTP(ctx, phone)
 	if err != nil {
 		if errors.Is(err, myerrors.ErrNotFound) {
@@ -66,7 +66,7 @@ func (s *Service) ConfirmOTPAndIssueToken(ctx context.Context, phone, otp string
 	}
 
 	// issue tokens
-	access, refresh, err := s.token.IssueTokens(ctx, user)
+	access, refresh, err := s.token.IssueTokens(ctx, user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("issue tokens err: %w", err)
 	}
@@ -108,7 +108,7 @@ func (s *Service) Login(ctx context.Context, phone, password string) (*models.To
 	}
 
 	// issue tokens
-	access, refresh, err := s.token.IssueTokens(ctx, user)
+	access, refresh, err := s.token.IssueTokens(ctx, user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("issue tokens err: %w", err)
 	}

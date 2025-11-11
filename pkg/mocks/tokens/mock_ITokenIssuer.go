@@ -4,7 +4,6 @@ package tokens
 
 import (
 	context "context"
-	models "shb/internal/models"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -22,9 +21,9 @@ func (_m *MockITokenIssuer) EXPECT() *MockITokenIssuer_Expecter {
 	return &MockITokenIssuer_Expecter{mock: &_m.Mock}
 }
 
-// IssueTokens provides a mock function with given fields: ctx, user
-func (_m *MockITokenIssuer) IssueTokens(ctx context.Context, user *models.User) (string, string, error) {
-	ret := _m.Called(ctx, user)
+// IssueTokens provides a mock function with given fields: ctx, id
+func (_m *MockITokenIssuer) IssueTokens(ctx context.Context, id int) (string, string, error) {
+	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for IssueTokens")
@@ -33,23 +32,23 @@ func (_m *MockITokenIssuer) IssueTokens(ctx context.Context, user *models.User) 
 	var r0 string
 	var r1 string
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, *models.User) (string, string, error)); ok {
-		return rf(ctx, user)
+	if rf, ok := ret.Get(0).(func(context.Context, int) (string, string, error)); ok {
+		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *models.User) string); ok {
-		r0 = rf(ctx, user)
+	if rf, ok := ret.Get(0).(func(context.Context, int) string); ok {
+		r0 = rf(ctx, id)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *models.User) string); ok {
-		r1 = rf(ctx, user)
+	if rf, ok := ret.Get(1).(func(context.Context, int) string); ok {
+		r1 = rf(ctx, id)
 	} else {
 		r1 = ret.Get(1).(string)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, *models.User) error); ok {
-		r2 = rf(ctx, user)
+	if rf, ok := ret.Get(2).(func(context.Context, int) error); ok {
+		r2 = rf(ctx, id)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -64,14 +63,14 @@ type MockITokenIssuer_IssueTokens_Call struct {
 
 // IssueTokens is a helper method to define mock.On call
 //   - ctx context.Context
-//   - user *models.User
-func (_e *MockITokenIssuer_Expecter) IssueTokens(ctx interface{}, user interface{}) *MockITokenIssuer_IssueTokens_Call {
-	return &MockITokenIssuer_IssueTokens_Call{Call: _e.mock.On("IssueTokens", ctx, user)}
+//   - id int
+func (_e *MockITokenIssuer_Expecter) IssueTokens(ctx interface{}, id interface{}) *MockITokenIssuer_IssueTokens_Call {
+	return &MockITokenIssuer_IssueTokens_Call{Call: _e.mock.On("IssueTokens", ctx, id)}
 }
 
-func (_c *MockITokenIssuer_IssueTokens_Call) Run(run func(ctx context.Context, user *models.User)) *MockITokenIssuer_IssueTokens_Call {
+func (_c *MockITokenIssuer_IssueTokens_Call) Run(run func(ctx context.Context, id int)) *MockITokenIssuer_IssueTokens_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*models.User))
+		run(args[0].(context.Context), args[1].(int))
 	})
 	return _c
 }
@@ -81,7 +80,7 @@ func (_c *MockITokenIssuer_IssueTokens_Call) Return(_a0 string, _a1 string, _a2 
 	return _c
 }
 
-func (_c *MockITokenIssuer_IssueTokens_Call) RunAndReturn(run func(context.Context, *models.User) (string, string, error)) *MockITokenIssuer_IssueTokens_Call {
+func (_c *MockITokenIssuer_IssueTokens_Call) RunAndReturn(run func(context.Context, int) (string, string, error)) *MockITokenIssuer_IssueTokens_Call {
 	_c.Call.Return(run)
 	return _c
 }
