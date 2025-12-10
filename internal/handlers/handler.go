@@ -3,16 +3,17 @@ package handlers
 import (
 	"context"
 	"errors"
-	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 	"net/http"
 	"shb/internal/models"
 	"shb/pkg/configs"
 	"shb/pkg/middlewares"
 	"shb/pkg/myerrors"
 	"shb/pkg/rateLimiter"
+
+	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // IService описывает бизнес-логику.
@@ -23,6 +24,18 @@ type IService interface {
 	ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
 	// Login проверяет логин и пароль, выдаёт токен при успешной верификации.
 	Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
+
+	// --- Institution Methods ---
+	// GetAllInstitutions возвращает список учреждений.
+	GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
+	// CreateInstitution создает новое учреждение
+	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
+
+	// --- Needs Methods ---
+	CreateNeed(ctx context.Context, n *models.Need) (int, error)
+	UpdateNeed(ctx context.Context, n *models.Need) error
+	DeleteNeed(ctx context.Context, id int) error
+	GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error)
 }
 
 type Handler struct {
@@ -46,7 +59,8 @@ func NewHandler(service IService, limiter rateLimiter.IRateLimiter,
 
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
-	router.Use(h.middleware.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
+	// ИСПРАВЛЕНО: Используем h.CORSMiddleware() вместо h.middleware.CORSMiddleware()
+	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
 	router.NoRoute(h.noRoute)
 	router.GET("/ping", h.ping)
 
@@ -57,12 +71,31 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		))
 		v1.Static("/docs", "./docs")
 
+		// Auth
 		v1.POST("/send_otp", h.sendOTP)
 		v1.POST("/confirm_otp", h.confirmOTP)
 		v1.POST("/login", h.login)
 
 		v1.GET("/check_access", h.middleware.AccessToken())
 		v1.GET("/check_refresh", h.middleware.RefreshToken())
+
+		// Institutions (Public)
+		v1.GET("/institutions", h.getAllInstitutions)
+		// Для создания учреждений (пока открыто для наполнения базы, позже закроем админскими правами)
+		v1.POST("/institutions", h.createInstitution)
+		
+		// Needs (Public) - просмотр нужд конкретного учреждения
+		v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
+
+		// Needs (Protected) - управление нуждами
+		// Доступ только для сотрудников и админов
+		needs := v1.Group("/needs")
+		needs.Use(h.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
+		{
+			needs.POST("", h.createNeed)
+			needs.PUT("/:id", h.updateNeed)
+			needs.DELETE("/:id", h.deleteNeed)
+		}
 	}
 	return router
 }

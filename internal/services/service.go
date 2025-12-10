@@ -2,13 +2,14 @@ package services
 
 import (
 	"context"
-	"github.com/rs/zerolog"
 	"shb/internal/models"
 	"shb/pkg/configs"
 	"shb/pkg/db/cache"
 	"shb/pkg/external/fs"
 	"shb/pkg/external/sms"
 	"shb/pkg/tokens"
+
+	"github.com/rs/zerolog"
 )
 
 // IRepository описывает методы доступа к БД.
@@ -26,6 +27,12 @@ type IRepository interface {
 	MarkOTPAsVerified(ctx context.Context, otpID int) error
 	// IncreaseOTPAttempt увеличивает счётчик попыток ввода OTP-кода.
 	IncreaseOTPAttempt(ctx context.Context, otpID int, phone string) error
+
+	// --- Institution Methods ---
+	// GetAllInstitutions возвращает список учреждений с возможностью фильтрации по городу.
+	GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
+	// CreateInstitution создает новое учреждение
+	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 }
 
 type Service struct {
