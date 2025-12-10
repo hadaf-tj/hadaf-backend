@@ -5,15 +5,16 @@ import (
 )
 
 type dbUser struct {
-	ID        int       `db:"id"`
-	FullName  string    `db:"full_name"`
-	Phone     string    `db:"phone"`
-	Email     string    `db:"email"`
-	Password  string    `db:"password"`
-	Role      string    `db:"role"`
-	IsActive  bool      `db:"is_active"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ID            int       `db:"id"`
+	InstitutionID *int      `db:"institution_id"` // Новое поле
+	FullName      string    `db:"full_name"`
+	Phone         string    `db:"phone"`
+	Email         string    `db:"email"`
+	Password      string    `db:"password"`
+	Role          string    `db:"role"`
+	IsActive      bool      `db:"is_active"`
+	CreatedAt     time.Time `db:"created_at"`
+	UpdatedAt     time.Time `db:"updated_at"`
 }
 
 type dbOtp struct {
