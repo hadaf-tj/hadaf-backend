@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"shb/internal/configs"
 	"shb/internal/models"
-	"shb/pkg/configs"
 	"shb/pkg/middlewares"
 	"shb/pkg/myerrors"
-	"shb/pkg/rateLimiter"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
@@ -16,46 +15,41 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// IService описывает бизнес-логику.
+type Limiter interface {
+    Allow(ctx context.Context, key string, limit int, windowSeconds int) (bool, error)
+    ResetAttempts(ctx context.Context, key string) error
+}
 type IService interface {
-	// SendOTP отправляет OTP на указанный номер телефона.
-	SendOTP(ctx context.Context, receiver string) (int, error)
-	// ConfirmOTP проверяет OTP и выдаёт токен при успешной верификации.
-	ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
-	// Login проверяет логин и пароль, выдаёт токен при успешной верификации.
-	Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
-
-	// --- Institution Methods ---
-	// GetAllInstitutions возвращает список учреждений.
-	GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
-	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
-	// CreateInstitution создает новое учреждение
-	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
-
-	// --- Needs Methods ---
-	CreateNeed(ctx context.Context, need *models.Need) (int, error)
-	UpdateNeed(ctx context.Context, n *models.Need) error
-	DeleteNeed(ctx context.Context, id int) error
-	GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error)
+    SendOTP(ctx context.Context, receiver string) (int, error)
+    ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
+    Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
+    
+    GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
+    CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
+    GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
+    
+    CreateNeed(ctx context.Context, need *models.Need) (int, error)
+    UpdateNeed(ctx context.Context, n *models.Need) error
+    DeleteNeed(ctx context.Context, id int) error
+    GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error)
 }
 
 type Handler struct {
-	service    IService
-	limiter    rateLimiter.IRateLimiter
-	middleware *middlewares.Middleware
-	cfg        *configs.Config
-	logger     *zerolog.Logger
+    service    IService
+    limiter    Limiter                 // CHANGED: Use local interface
+    middleware *middlewares.Middleware // CHANGED: Use imported type (pointer likely)
+    logger     *zerolog.Logger
+    cfg        *configs.Config
 }
 
-func NewHandler(service IService, limiter rateLimiter.IRateLimiter,
-	middleware *middlewares.Middleware, log *zerolog.Logger, cfg *configs.Config) *Handler {
-	return &Handler{
-		service:    service,
-		limiter:    limiter,
-		middleware: middleware,
-		cfg:        cfg,
-		logger:     log,
-	}
+func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middleware, logger *zerolog.Logger, cfg *configs.Config) *Handler {
+    return &Handler{
+        service:    service,
+        limiter:    limiter,
+        middleware: middleware,
+        logger:     logger,
+        cfg:        cfg,
+    }
 }
 
 func (h *Handler) InitRoutes() *gin.Engine {

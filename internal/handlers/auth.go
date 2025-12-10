@@ -2,9 +2,10 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"shb/pkg/myerrors"
 	"shb/pkg/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) sendOTP(c *gin.Context) {
@@ -33,7 +34,7 @@ func (h *Handler) sendOTP(c *gin.Context) {
 
 	key := fmt.Sprintf("user:%s:send_otp", in.Receiver)
 	ok, err := h.limiter.Allow(ctx, key, h.cfg.Service.Security.SendOTPAttempts,
-		h.cfg.Service.Security.SendOTPBlockTime)
+		int(h.cfg.Service.Security.SendOTPBlockTime.Seconds()))
 	if err != nil {
 		logger.Warn().Err(err).Msg("limiter.Allow error")
 		h.handleError(c, myerrors.ErrGeneral)

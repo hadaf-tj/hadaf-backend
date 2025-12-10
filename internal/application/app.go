@@ -2,14 +2,13 @@ package application
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"net/http"
 	"os"
 	"os/signal"
+	"shb/internal/configs"
 	"shb/internal/handlers"
 	"shb/internal/repositories"
 	"shb/internal/services"
-	"shb/pkg/configs"
 	"shb/pkg/db/cache/redisClient"
 	"shb/pkg/db/pgx"
 	"shb/pkg/external/fs/minioFs"
@@ -21,6 +20,11 @@ import (
 	"shb/pkg/tokens/jwtToken"
 	"syscall"
 	"time"
+
+	internalConfigs "shb/internal/configs" // Alias internal config
+	pkgConfigs "shb/pkg/configs"           // Import pkg config (Legacy)
+
+	"github.com/pkg/errors"
 )
 
 type App struct {
@@ -28,49 +32,76 @@ type App struct {
 	logger *logger.Logger
 	server *server.Server
 }
-
 func NewApplication() *App {
-	cfg, err := configs.InitConfigs()
-	if err != nil {
-		panic("failed to load config: " + err.Error())
-	}
-	log, err := logger.NewLogger(&cfg.Logger)
-	if err != nil {
-		panic("failed to initialize logger: " + err.Error())
-	}
-	postgresConn, err := pgx.NewPgxPool()
-	if err != nil {
-		panic("failed to connect to postgres: " + err.Error())
-	}
-	redis, err := redisClient.NewRedisClient()
-	if err != nil {
-		panic("failed to connect to redis: " + err.Error())
-	}
-	fileStorage, err := minioFs.NewMinIOStorage(minioFs.MinIOConfig{
-		Bucket:    configs.MinioBucket,
-		Endpoint:  configs.MinioEndpoint,
-		AccessKey: configs.MinioAccessKey,
-		SecretKey: configs.MinioSecretKey,
-		Logger:    &log.Logger,
-	})
-	if err != nil {
-		panic("failed to initialize minio storage: " + err.Error())
-	}
+    // 1. Load Internal Config
+    cfg, err := internalConfigs.InitConfigs()
+    if err != nil {
+        panic("failed to load config: " + err.Error())
+    }
 
-	limiter := customLimiter.NewRateLimiter(redis)
-	sms := smsProvider.NewSMSProvider(&cfg.SMS)
-	token := jwtToken.NewJwtTokenIssuer()
-	middleware := middlewares.NewMiddleware()
+    // 2. Map Internal Config to Pkg Config for Logger
+    // (Assuming pkgConfigs.Logger has a 'Level' field)
+    legacyLoggerCfg := &pkgConfigs.Logger{
+        Level: cfg.Logger.Level,
+    }
+    log, err := logger.NewLogger(legacyLoggerCfg)
+    if err != nil {
+        panic("failed to initialize logger: " + err.Error())
+    }
 
-	repository := repositories.NewRepository(postgresConn, &log.Logger)
-	service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage)
-	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
-	srv := server.NewServer(&cfg.Server, handler)
+    postgresConn, err := pgx.NewPgxPool()
+    if err != nil {
+        panic("failed to connect to postgres: " + err.Error())
+    }
+    
+    redis, err := redisClient.NewRedisClient()
+    if err != nil {
+        panic("failed to connect to redis: " + err.Error())
+    }
 
-	return &App{
-		config: cfg,
-		logger: log,
-		server: srv}
+    fileStorage, err := minioFs.NewMinIOStorage(minioFs.MinIOConfig{
+        Bucket:    internalConfigs.MinioBucket,
+        Endpoint:  internalConfigs.MinioEndpoint,
+        AccessKey: internalConfigs.MinioAccessKey,
+        SecretKey: internalConfigs.MinioSecretKey,
+        Logger:    &log.Logger,
+    })
+    if err != nil {
+        panic("failed to initialize minio storage: " + err.Error())
+    }
+
+    limiter := customLimiter.NewRateLimiter(redis)
+
+    // 3. Map Internal Config to Pkg Config for SMS
+    legacySMSCfg := &pkgConfigs.SMSProvider{
+        APIKey:     cfg.SMS.APIKey,
+        SenderName: cfg.SMS.SenderName,
+    }
+    sms := smsProvider.NewSMSProvider(legacySMSCfg)
+    
+    token := jwtToken.NewJwtTokenIssuer()
+    middleware := middlewares.NewMiddleware()
+
+    repository := repositories.NewRepository(postgresConn, &log.Logger)
+    
+    // Service uses Internal Config (ServiceConfig)
+    service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage)
+    
+    // Handler uses Internal Config
+    handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
+
+    // 4. Map Internal Config to Pkg Config for Server
+    legacyServerCfg := &pkgConfigs.Server{
+        Name: cfg.Server.Name,
+        Port: cfg.Server.Port,
+    }
+    srv := server.NewServer(legacyServerCfg, handler)
+
+    return &App{
+        config: cfg,
+        logger: log,
+        server: srv,
+    }
 }
 
 func (a *App) Start() {

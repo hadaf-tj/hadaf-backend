@@ -1,8 +1,9 @@
 package configs
 
 import (
-	"github.com/spf13/viper"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 func InitConfigs() (*Config, error) {
@@ -23,6 +24,7 @@ func InitConfigs() (*Config, error) {
 
 type Config struct {
 	App     App
+	Security SecurityConfig
 	Server  Server
 	Service Service
 	Logger  Logger
@@ -30,6 +32,17 @@ type Config struct {
 }
 
 type App struct {
+}
+type AppConfig struct {
+    Port string
+}
+
+type SecurityConfig struct {
+    SecretKey string
+}
+
+type DatabaseConfig struct {
+    DSN string
 }
 
 type Server struct {
@@ -59,4 +72,8 @@ type Security struct {
 	OTPMaxAttemptsBlockTime time.Duration
 	OTPDuration             time.Duration
 }
-type SMSProvider struct{}
+
+type SMSProvider struct {
+    APIKey     string // <--- Этого поля не хватало
+    SenderName string // <--- И этого тоже
+}

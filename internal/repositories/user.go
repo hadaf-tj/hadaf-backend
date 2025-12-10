@@ -96,3 +96,35 @@ func (r *Repository) CreateUser(ctx context.Context, user *models.User) error {
 	user.Role = role
 	return nil
 }
+func (r *Repository) GetUserByID(ctx context.Context, id int) (*models.User, error) {
+	query := `
+		SELECT id, institution_id, full_name, phone, email, password, role, is_active, created_at, updated_at 
+		FROM users 
+		WHERE id = $1`
+
+	var u dbUser
+	err := r.postgres.QueryRow(ctx, query, id).Scan(
+		&u.ID, &u.InstitutionID, &u.FullName, &u.Phone, &u.Email, &u.Password,
+		&u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, myerrors.ErrNotFound
+		}
+		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+
+	return &models.User{
+		ID:            u.ID,
+		InstitutionID: u.InstitutionID,
+		FullName:      u.FullName,
+		Phone:         u.Phone,
+		Email:         u.Email,
+		Password:      u.Password,
+		Role:          u.Role,
+		IsActive:      u.IsActive,
+		CreatedAt:     u.CreatedAt,
+		UpdatedAt:     u.UpdatedAt,
+	}, nil
+}
