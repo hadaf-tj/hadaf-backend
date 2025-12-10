@@ -33,6 +33,14 @@ type IRepository interface {
 	GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
 	// CreateInstitution создает новое учреждение
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
+	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
+	CreateNeed(ctx context.Context, need *models.Need) error
+    GetNeedByID(ctx context.Context, id int) (*models.Need, error) // Лучше возвращать указатель *models.Need
+    UpdateNeed(ctx context.Context, id int, input models.UpdateNeedInput) error
+    DeleteNeed(ctx context.Context, id int) error
+    GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error) // Лучше []*Need
+	
+    GetUserByID(ctx context.Context, id int) (*models.User, error) // Для проверки пользователя при логине/создании
 }
 
 type Service struct {

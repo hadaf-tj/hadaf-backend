@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"shb/internal/models"
 )
-
 func (r *Repository) GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error) {
-	query := `
-		SELECT id, name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude, created_at, updated_at
-		FROM institutions
-	`
-
+    // Добавляем подзапрос для подсчета (COUNT)
+    query := `
+        SELECT 
+            i.id, i.name, i.type, i.city, i.region, i.address, 
+            i.phone, i.email, i.description, i.activity_hours, 
+            i.latitude, i.longitude, i.created_at, i.updated_at,
+            (SELECT COUNT(*) FROM needs n WHERE n.institution_id = i.id) as needs_count 
+        FROM institutions i
+    `
 	var args []interface{}
 	if city != "" {
 		query += " WHERE city = $1"
@@ -80,4 +83,23 @@ func (r *Repository) CreateInstitution(ctx context.Context, i *models.Institutio
 	}
 
 	return id, nil
+}
+
+func (r *Repository) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
+    query := `
+        SELECT id, name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude, created_at, updated_at
+        FROM institutions
+        WHERE id = $1
+    `
+    var i models.Institution
+    // ВАЖНО: Убедись, что модель Institution совпадает с полями в базе
+    err := r.postgres.QueryRow(ctx, query, id).Scan(
+        &i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
+        &i.Phone, &i.Email, &i.Description, &i.ActivityHours,
+        &i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
+    )
+    if err != nil {
+        return nil, fmt.Errorf("get institution by id: %w", err)
+    }
+    return &i, nil
 }

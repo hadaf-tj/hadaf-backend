@@ -13,3 +13,7 @@ func (s *Service) GetAllInstitutions(ctx context.Context, city string) ([]*model
 func (s *Service) CreateInstitution(ctx context.Context, i *models.Institution) (int, error) {
 	return s.repo.CreateInstitution(ctx, i)
 }
+
+func (s *Service) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
+    return s.repo.GetInstitutionByID(ctx, id)
+}

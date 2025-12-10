@@ -27,7 +27,10 @@ func (s *Service) checkPermission(ctx context.Context, institutionID int) error 
 	// (В идеале ID учреждения можно хранить в токене, чтобы не делать запрос в БД каждый раз)
 	// Для MVP сделаем запрос для надежности:
 	// NOTE: Это упрощение. В продакшене лучше institution_id класть в JWT claims.
-	userDB, err := s.repo.GetUserByID(ctx, userID) 
+	userDB, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return err // Если ошибка, значит юзера нет или БД упала
+	}
     // Внимание: метода GetUserByID у нас в интерфейсе пока нет, нужно будет добавить или использовать GetUserByPhone если есть телефон.
     // Давайте лучше положимся на то, что institution_id будет в токене (Claims) в будущем.
     // Пока что предположим, что мы доверяем данным, переданным с фронта, НО это небезопасно.
@@ -47,9 +50,13 @@ func (s *Service) checkPermission(ctx context.Context, institutionID int) error 
 	return nil
 }
 
-func (s *Service) CreateNeed(ctx context.Context, n *models.Need) (int, error) {
-    // В реальном коде здесь нужно вызвать s.checkPermission(ctx, n.InstitutionID)
-	return s.repo.CreateNeed(ctx, n)
+func (s *Service) CreateNeed(ctx context.Context, need *models.Need) (error) {
+    // Вызываем репозиторий, он возвращает ID и ошибку
+    err := s.repo.CreateNeed()
+    if err != nil {
+        return err
+    }
+    return nil // Возвращаем ID и nil (нет ошибки)
 }
 
 func (s *Service) UpdateNeed(ctx context.Context, n *models.Need) error {

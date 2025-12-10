@@ -15,3 +15,10 @@ type Need struct {
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
+
+type UpdateNeedInput struct {
+    Title       *string `json:"title"`
+    Description *string `json:"description"`
+    Priority    *string `json:"priority"`
+    // Используем указатели (*string), чтобы понимать, какие поля обновлять (nil = не обновлять)
+}

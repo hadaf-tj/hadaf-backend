@@ -3,6 +3,7 @@ package handlers
 import (
 	"shb/internal/models"
 	"shb/pkg/myerrors"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -59,4 +60,23 @@ func (h *Handler) createInstitution(c *gin.Context) {
 	}
 
 	h.success(c, gin.H{"id": id})
+}
+
+func (h *Handler) getInstitutionByID(c *gin.Context) {
+    idStr := c.Param("id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        h.handleError(c, myerrors.NewBadRequestErr("invalid id"))
+        return
+    }
+
+    institution, err := h.service.GetInstitutionByID(c.Request.Context(), id)
+    if err != nil {
+        // Здесь можно добавить проверку на sql.ErrNoRows и возвращать 404
+        h.logger.Error().Err(err).Int("id", id).Msg("failed to get institution")
+        h.handleError(c, myerrors.ErrGeneral)
+        return
+    }
+
+    h.success(c, institution)
 }

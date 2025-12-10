@@ -28,11 +28,12 @@ type IService interface {
 	// --- Institution Methods ---
 	// GetAllInstitutions возвращает список учреждений.
 	GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
+	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
 	// CreateInstitution создает новое учреждение
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 
 	// --- Needs Methods ---
-	CreateNeed(ctx context.Context, n *models.Need) (int, error)
+	CreateNeed(ctx context.Context, need *models.Need) (int, error)
 	UpdateNeed(ctx context.Context, n *models.Need) error
 	DeleteNeed(ctx context.Context, id int) error
 	GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error)
@@ -58,46 +59,51 @@ func NewHandler(service IService, limiter rateLimiter.IRateLimiter,
 }
 
 func (h *Handler) InitRoutes() *gin.Engine {
-	router := gin.New()
-	// ИСПРАВЛЕНО: Используем h.CORSMiddleware() вместо h.middleware.CORSMiddleware()
-	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
-	router.NoRoute(h.noRoute)
-	router.GET("/ping", h.ping)
+    router := gin.New()
+    // Middleware: CORS, Recovery, RequestID
+    router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
+    router.NoRoute(h.noRoute)
+    
+    // Health check
+    router.GET("/ping", h.ping)
 
-	v1 := router.Group("/api/v1")
-	{
-		v1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
-			ginSwagger.URL("/api/v1/docs/swagger.yaml"),
-		))
-		v1.Static("/docs", "./docs")
+    v1 := router.Group("/api/v1")
+    {
+        // Swagger docs
+        v1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
+            ginSwagger.URL("/api/v1/docs/swagger.yaml"),
+        ))
+        v1.Static("/docs", "./docs")
 
-		// Auth
-		v1.POST("/send_otp", h.sendOTP)
-		v1.POST("/confirm_otp", h.confirmOTP)
-		v1.POST("/login", h.login)
+        // Auth
+        v1.POST("/send_otp", h.sendOTP)
+        v1.POST("/confirm_otp", h.confirmOTP)
+        v1.POST("/login", h.login)
 
-		v1.GET("/check_access", h.middleware.AccessToken())
-		v1.GET("/check_refresh", h.middleware.RefreshToken())
+        v1.GET("/check_access", h.middleware.AccessToken())
+        v1.GET("/check_refresh", h.middleware.RefreshToken())
 
-		// Institutions (Public)
-		v1.GET("/institutions", h.getAllInstitutions)
-		// Для создания учреждений (пока открыто для наполнения базы, позже закроем админскими правами)
-		v1.POST("/institutions", h.createInstitution)
-		
-		// Needs (Public) - просмотр нужд конкретного учреждения
-		v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
+        // Institutions (Public)
+        v1.GET("/institutions", h.getAllInstitutions)
+        // ВОТ ЭТА СТРОКА НУЖНА ДЛЯ ДЕТАЛЬНОЙ СТРАНИЦЫ:
+        v1.GET("/institutions/:id", h.getInstitutionByID) 
+        
+        v1.POST("/institutions", h.createInstitution)
+        
+        // Needs (Public) - просмотр нужд конкретного учреждения
+        v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
+        // Или можно использовать /needs/institution/:id, главное чтобы совпадало с lib/api.ts
 
-		// Needs (Protected) - управление нуждами
-		// Доступ только для сотрудников и админов
-		needs := v1.Group("/needs")
-		needs.Use(h.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
-		{
-			needs.POST("", h.createNeed)
-			needs.PUT("/:id", h.updateNeed)
-			needs.DELETE("/:id", h.deleteNeed)
-		}
-	}
-	return router
+        // Needs (Protected) - управление нуждами
+        needs := v1.Group("/needs")
+        needs.Use(h.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
+        {
+            needs.POST("", h.createNeed)
+            needs.PUT("/:id", h.updateNeed)
+            needs.DELETE("/:id", h.deleteNeed)
+        }
+    }
+    return router
 }
 
 func (h *Handler) ping(context *gin.Context) {
