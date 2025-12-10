@@ -27,6 +27,24 @@ func (h *Handler) RequestID() gin.HandlerFunc {
 	}
 }
 
+// CORSMiddleware настраивает заголовки для Cross-Origin запросов
+func (h *Handler) CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// В продакшене лучше заменить "*" на конкретный домен фронтенда, например "http://localhost:3000"
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, x-request-id")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
+}
+
 // AuthMiddleware проверяет JWT токен и роли доступа
 func (h *Handler) AuthMiddleware(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -75,7 +93,6 @@ func (h *Handler) AuthMiddleware(roles ...string) gin.HandlerFunc {
 		}
 
 		// Сохраняем данные пользователя в контекст Gin для дальнейшего использования
-		// "userID" и "role" - это ключи, по которым мы будем доставать данные в хендлерах
 		c.Set("userID", claims.UserID)
 		c.Set("role", claims.Role)
 		c.Next()
