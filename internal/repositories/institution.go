@@ -32,10 +32,12 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, city string) ([]*mo
 	var institutions []*models.Institution
 	for rows.Next() {
 		var i dbInstitution
+
 		if err := rows.Scan(
 			&i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
 			&i.Phone, &i.Email, &i.Description, &i.ActivityHours,
 			&i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
+			&i.NeedsCount,
 		); err != nil {
 			return nil, fmt.Errorf("scan institution: %w", err)
 		}
@@ -55,6 +57,7 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, city string) ([]*mo
 			Longitude:     i.Longitude,
 			CreatedAt:     i.CreatedAt,
 			UpdatedAt:     i.UpdatedAt,
+			NeedsCount:    i.NeedsCount,
 		})
 	}
 

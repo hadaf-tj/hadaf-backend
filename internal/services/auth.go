@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/bcrypt"
 	"shb/internal/models"
 	"shb/pkg/myerrors"
 	"shb/pkg/utils"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
@@ -112,6 +113,46 @@ func (s *Service) Login(ctx context.Context, phone, password string) (*models.To
 	if err != nil {
 		return nil, fmt.Errorf("issue tokens err: %w", err)
 	}
+	return &models.TokenResponse{
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}, nil
+}
+
+func (s *Service) Register(ctx context.Context, phone, password, fullName string, institutionID int) (*models.TokenResponse, error) {
+	// 1. Проверяем, есть ли уже такой пользователь
+	existing, err := s.repo.GetUserByPhone(ctx, phone)
+	if err == nil && existing != nil {
+		return nil, myerrors.NewBadRequestErr("user with this phone already exists")
+	}
+
+	// 2. Хешируем пароль (Правильно, средствами Go!)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hashing failed: %w", err)
+	}
+
+	// 3. Создаем модель
+	newUser := &models.User{
+		Phone:         phone,
+		Password:      string(hashedPassword),
+		FullName:      fullName,
+		Role:          models.RoleEmployee, // По умолчанию создаем Сотрудника
+		IsActive:      true,
+		InstitutionID: &institutionID,
+	}
+
+	// 4. Сохраняем в базу
+	if err := s.repo.CreateUser(ctx, newUser); err != nil {
+		return nil, err
+	}
+
+	// 5. Сразу логиним его (выдаем токены)
+	access, refresh, err := s.token.IssueTokens(ctx, newUser.ID)
+	if err != nil {
+		return nil, fmt.Errorf("issue tokens error: %w", err)
+	}
+
 	return &models.TokenResponse{
 		AccessToken:  access,
 		RefreshToken: refresh,

@@ -17,4 +17,5 @@ type Institution struct {
 	Longitude     *float64   `json:"longitude"` // Указатель
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at"`
+	NeedsCount	  int 		 `json:"needs_count"`
 }

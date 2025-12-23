@@ -79,7 +79,12 @@ func NewApplication() *App {
     }
     sms := smsProvider.NewSMSProvider(legacySMSCfg)
     
-    token := jwtToken.NewJwtTokenIssuer()
+    // token := jwtToken.NewJwtTokenIssuer()
+    token := jwtToken.NewJwtTokenIssuer(
+        cfg.Security.JWTSecretKey,
+        cfg.Security.AccessTokenTTL,
+        cfg.Security.RefreshTokenTTL,
+    )
     middleware := middlewares.NewMiddleware()
 
     repository := repositories.NewRepository(postgresConn, &log.Logger)

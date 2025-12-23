@@ -1,8 +1,9 @@
 package main
 
 import (
-	_ "github.com/joho/godotenv/autoload"
 	"shb/internal/application"
+
+	_ "github.com/joho/godotenv/autoload"
 )
 
 func main() {

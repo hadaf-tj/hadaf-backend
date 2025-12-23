@@ -114,7 +114,32 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 	h.success(c, response)
 }
 
-func (h *Handler) register(c *gin.Context) {}
+func (h *Handler) register(c *gin.Context) {
+	ctx := c.Request.Context()
+	
+	// Структура запроса
+	in := struct {
+		Phone         string `json:"phone" binding:"required"`
+		Password      string `json:"password" binding:"required"`
+		FullName      string `json:"full_name" binding:"required"`
+		InstitutionID int    `json:"institution_id" binding:"required"`
+	}{}
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid input"))
+		return
+	}
+
+	// Вызываем сервис
+	tokens, err := h.service.Register(ctx, in.Phone, in.Password, in.FullName, in.InstitutionID)
+	if err != nil {
+		h.logger.Error().Err(err).Str("phone", in.Phone).Msg("registration failed")
+		h.handleError(c, err)
+		return
+	}
+
+	h.success(c, tokens)
+}
 
 func (h *Handler) login(c *gin.Context) {
 	ctx := c.Request.Context()

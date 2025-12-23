@@ -23,6 +23,7 @@ type IService interface {
     SendOTP(ctx context.Context, receiver string) (int, error)
     ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
     Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
+    Register(ctx context.Context, phone, password, fullName string, institutionID int) (*models.TokenResponse, error)
     
     GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
     CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
@@ -73,6 +74,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
         v1.POST("/send_otp", h.sendOTP)
         v1.POST("/confirm_otp", h.confirmOTP)
         v1.POST("/login", h.login)
+        v1.POST("/register", h.register)
 
         v1.GET("/check_access", h.middleware.AccessToken())
         v1.GET("/check_refresh", h.middleware.RefreshToken())

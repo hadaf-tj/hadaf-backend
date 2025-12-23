@@ -45,4 +45,5 @@ type dbInstitution struct {
 	Longitude     *float64   `db:"longitude"`
 	CreatedAt     time.Time  `db:"created_at"`
 	UpdatedAt     *time.Time `db:"updated_at"`
+	NeedsCount	  int 		 `json:"needs_count"`
 }

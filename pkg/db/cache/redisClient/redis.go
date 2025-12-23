@@ -3,10 +3,12 @@ package redisClient
 import (
 	"context"
 	"fmt"
-	"github.com/redis/go-redis/v9"
+	"os"
 	"shb/pkg/configs"
 	"strconv"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type RedisCache struct {
@@ -14,19 +16,41 @@ type RedisCache struct {
 }
 
 func NewRedisClient() (*RedisCache, error) {
+	// 1. Пытаемся получить настройки из переменных окружения (для Docker)
+	host := os.Getenv("REDIS_HOST")
+	port := os.Getenv("REDIS_PORT")
+
+	// 2. Если переменных нет, используем дефолтные значения или те, что в конфиге (для локального запуска)
+	if host == "" {
+		host = "localhost" 
+	}
+	if port == "" {
+		port = "6379"
+	}
+
+	addr := fmt.Sprintf("%s:%s", host, port)
+
+	// Парсим остальные настройки
 	db, _ := strconv.Atoi(configs.RedisDefaultDB)
-	timeout, _ := strconv.Atoi(configs.RedisTimeout)
+	
+	// Безопасное чтение таймаура
+	timeoutInt, _ := strconv.Atoi(configs.RedisTimeout)
+	if timeoutInt == 0 {
+		timeoutInt = 5 // Дефолтный таймаут 5 секунд, если в конфиге пусто
+	}
+
+	fmt.Printf("Connecting to Redis at: %s\n", addr) // Лог для отладки
 
 	client := redis.NewClient(&redis.Options{
-		Addr: configs.RedisHost,
+		Addr: addr,
 		DB:   db,
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutInt)*time.Second)
 	defer cancel()
 
 	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("failed to ping redis: %w", err)
+		return nil, fmt.Errorf("failed to ping redis at %s: %w", addr, err)
 	}
 
 	return &RedisCache{client: client}, nil

@@ -1,15 +1,19 @@
 package configs
 
-import "time"
+import (
+	"fmt"
+	"os"
+	"time"
+)
 
 type Config struct {
 	App      AppConfig
 	Security SecurityConfig
 	Database DatabaseConfig
-	Logger   LoggerConfig   // Added
-	SMS      SMSConfig      // Added
-	Server   ServerConfig   // Added
-	Service  ServiceConfig  // Added
+	Logger   LoggerConfig
+	SMS      SMSConfig
+	Server   ServerConfig
+	Service  ServiceConfig
 }
 
 type AppConfig struct {
@@ -18,7 +22,7 @@ type AppConfig struct {
 }
 
 type SecurityConfig struct {
-	JWTSecretKey            string        // Fixed name (was SecretKey)
+	JWTSecretKey            string
 	AccessTokenTTL          time.Duration
 	RefreshTokenTTL         time.Duration
 	OTPLength               int
@@ -51,7 +55,7 @@ type ServiceConfig struct {
 	Security SecurityConfig
 }
 
-// Global constants
+// Global constants (оставляем как есть, хотя лучше вынести в ENV)
 const (
 	MinioBucket    = "shb-files"
 	MinioEndpoint  = "minio:9000"
@@ -59,14 +63,39 @@ const (
 	MinioSecretKey = "minioadmin"
 )
 
+// Helper для чтения ENV с дефолтным значением
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
+}
+
 // InitConfigs loads the configuration
 func InitConfigs() (*Config, error) {
-	// Hardcoded for now to pass compilation.
-	// In real app, load from .env using Viper or Godotenv
+	// Читаем переменные для PostgreSQL
+	pgUser := getEnv("POSTGRES_USER", "postgres")
+	pgPass := getEnv("POSTGRES_PASSWORD", "postgres")
+	pgHost := getEnv("POSTGRES_HOST", "localhost") // В Docker будет "postgres"
+	pgPort := getEnv("POSTGRES_PORT", "5432")
+	pgDB := getEnv("POSTGRES_DB", "shb")
+
+	// Формируем DSN строку
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		pgUser, pgPass, pgHost, pgPort, pgDB)
+
+	// Читаем настройки Redis (важно для pkg/db/cache/redisClient)
+	// Примечание: Если redisClient сам читает REDIS_HOST через os.Getenv, это сработает.
+	// Если он берет конфиг отсюда - мы пока не передаем это явно в структуру,
+	// но наличие переменных в ENV (через docker-compose) должно спасти ситуацию.
+
 	return &Config{
-		App: AppConfig{Port: ":8000", Env: "local"},
+		App: AppConfig{
+			Port: getEnv("APP_PORT", ":8000"),
+			Env:  getEnv("APP_ENV", "local"),
+		},
 		Security: SecurityConfig{
-			JWTSecretKey:            "super_secret_key",
+			JWTSecretKey:            getEnv("JWT_SECRET_KEY", "super_secret_dev_key"),
 			AccessTokenTTL:          15 * time.Minute,
 			RefreshTokenTTL:         720 * time.Hour,
 			OTPLength:               4,
@@ -76,16 +105,26 @@ func InitConfigs() (*Config, error) {
 			SendOTPAttempts:         3,
 			SendOTPBlockTime:        1 * time.Minute,
 		},
-		Database: DatabaseConfig{DSN: ""},
-		Logger:   LoggerConfig{Level: "debug"},
-		SMS:      SMSConfig{APIKey: "mock", SenderName: "Test"},
-		Server:   ServerConfig{Name: "SocialHousingBackend", Port: ":8000"},
+		Database: DatabaseConfig{
+			DSN: dsn, // Теперь DSN формируется динамически!
+		},
+		Logger: LoggerConfig{
+			Level: getEnv("LOG_LEVEL", "debug"),
+		},
+		SMS: SMSConfig{
+			APIKey:     getEnv("SMS_API_KEY", "mock"),
+			SenderName: getEnv("SMS_SENDER_NAME", "Payvand"),
+		},
+		Server: ServerConfig{
+			Name: "SocialHousingBackend",
+			Port: getEnv("APP_PORT", ":8000"),
+		},
 		Service: ServiceConfig{
 			Security: SecurityConfig{
-				SendOTPAttempts:  3,
-				SendOTPBlockTime: 1 * time.Minute,
-                OTPMaxAttempts: 3,
-                OTPMaxAttemptsBlockTime: 30 * time.Minute,
+				SendOTPAttempts:         3,
+				SendOTPBlockTime:        1 * time.Minute,
+				OTPMaxAttempts:          3,
+				OTPMaxAttemptsBlockTime: 30 * time.Minute,
 			},
 		},
 	}, nil
