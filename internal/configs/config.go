@@ -24,7 +24,9 @@ type AppConfig struct {
 type SecurityConfig struct {
 	JWTSecretKey            string
 	AccessTokenTTL          time.Duration
+	AccessTokenSecret       string
 	RefreshTokenTTL         time.Duration
+	RefreshTokenSecret      string
 	OTPLength               int
 	OTPDuration             time.Duration
 	OTPMaxAttempts          int
@@ -97,7 +99,9 @@ func InitConfigs() (*Config, error) {
 		Security: SecurityConfig{
 			JWTSecretKey:            getEnv("JWT_SECRET_KEY", "super_secret_dev_key"),
 			AccessTokenTTL:          15 * time.Minute,
+			AccessTokenSecret:       getEnv("ACCESS_TOKEN_SECRET", "super_secret_dev_key"),
 			RefreshTokenTTL:         720 * time.Hour,
+			RefreshTokenSecret:      getEnv("REFRESH_TOKEN_SECRET", "super_secret_dev_key"),
 			OTPLength:               4,
 			OTPDuration:             5 * time.Minute,
 			OTPMaxAttempts:          3,
