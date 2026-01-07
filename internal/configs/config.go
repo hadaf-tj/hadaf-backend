@@ -14,8 +14,6 @@ type Config struct {
 	SMS      SMSConfig
 	Server   ServerConfig
 	Service  ServiceConfig
-	Redis    RedisConfig
-	Minio    MinioConfig
 }
 
 type AppConfig struct {
@@ -26,9 +24,7 @@ type AppConfig struct {
 type SecurityConfig struct {
 	JWTSecretKey            string
 	AccessTokenTTL          time.Duration
-	AccessTokenSecret       string
 	RefreshTokenTTL         time.Duration
-	RefreshTokenSecret      string
 	OTPLength               int
 	OTPDuration             time.Duration
 	OTPMaxAttempts          int
@@ -42,9 +38,7 @@ type DatabaseConfig struct {
 }
 
 type LoggerConfig struct {
-	Level         string
-	LogPath       string
-	IncludeCaller string
+	Level string
 }
 
 type SMSConfig struct {
@@ -53,30 +47,21 @@ type SMSConfig struct {
 }
 
 type ServerConfig struct {
-	Name         string
-	Port         string
-	Host         string
-	WriteTimeout string
-	ReadTimeout  string
+	Name string
+	Port string
 }
 
 type ServiceConfig struct {
 	Security SecurityConfig
 }
 
-type RedisConfig struct {
-	Host      string
-	Port      string
-	DefaultDB int
-	Timeout   string
-}
-
-type MinioConfig struct {
-	Bucket    string
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-}
+// Global constants (оставляем как есть, хотя лучше вынести в ENV)
+const (
+	MinioBucket    = "shb-files"
+	MinioEndpoint  = "minio:9000"
+	MinioAccessKey = "minioadmin"
+	MinioSecretKey = "minioadmin"
+)
 
 // Helper для чтения ENV с дефолтным значением
 func getEnv(key, fallback string) string {
@@ -112,9 +97,7 @@ func InitConfigs() (*Config, error) {
 		Security: SecurityConfig{
 			JWTSecretKey:            getEnv("JWT_SECRET_KEY", "super_secret_dev_key"),
 			AccessTokenTTL:          15 * time.Minute,
-			AccessTokenSecret:       getEnv("ACCESS_TOKEN_SECRET", "super_secret_dev_key"),
 			RefreshTokenTTL:         720 * time.Hour,
-			RefreshTokenSecret:      getEnv("REFRESH_TOKEN_SECRET", "super_secret_dev_key"),
 			OTPLength:               4,
 			OTPDuration:             5 * time.Minute,
 			OTPMaxAttempts:          3,
@@ -126,20 +109,15 @@ func InitConfigs() (*Config, error) {
 			DSN: dsn, // Теперь DSN формируется динамически!
 		},
 		Logger: LoggerConfig{
-			Level:         getEnv("LOG_LEVEL", "debug"),
-			LogPath:       getEnv("LOG_PATH", ""),
-			IncludeCaller: getEnv("INCLUDE_CALLER", ""),
+			Level: getEnv("LOG_LEVEL", "debug"),
 		},
 		SMS: SMSConfig{
 			APIKey:     getEnv("SMS_API_KEY", "mock"),
 			SenderName: getEnv("SMS_SENDER_NAME", "Payvand"),
 		},
 		Server: ServerConfig{
-			Name:         "SocialHousingBackend",
-			Port:         getEnv("APP_PORT", ":8000"),
-			Host:         getEnv("APP_HOST", "localhost"),
-			WriteTimeout: getEnv("APP_WRITE_TIMEOUT", "10s"),
-			ReadTimeout:  getEnv("APP_READ_TIMEOUT", "10s"),
+			Name: "SocialHousingBackend",
+			Port: getEnv("APP_PORT", ":8000"),
 		},
 		Service: ServiceConfig{
 			Security: SecurityConfig{
@@ -148,18 +126,6 @@ func InitConfigs() (*Config, error) {
 				OTPMaxAttempts:          3,
 				OTPMaxAttemptsBlockTime: 30 * time.Minute,
 			},
-		},
-		Redis: RedisConfig{
-			Host:      getEnv("REDIS_HOST", "localhost"),
-			Port:      getEnv("REDIS_PORT", "6379"),
-			DefaultDB: 0,
-			Timeout:   getEnv("REDIS_TIMEOUT", "5s"),
-		},
-		Minio: MinioConfig{
-			Bucket:    getEnv("MINIO_BUCKET", "minio"),
-			Endpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
-			AccessKey: getEnv("MINIO_ACCESS_KEY", "minio"),
-			SecretKey: getEnv("MINIO_SECRET_KEY", "minio"),
 		},
 	}, nil
 }

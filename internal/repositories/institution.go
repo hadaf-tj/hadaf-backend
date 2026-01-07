@@ -4,12 +4,10 @@ import (
 	"context"
 	"fmt"
 	"shb/internal/models"
-	"shb/internal/repositories/filters"
 )
-
-func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error) {
-	// Добавляем подзапрос для подсчета (COUNT)
-	query := `
+func (r *Repository) GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error) {
+    // Добавляем подзапрос для подсчета (COUNT)
+    query := `
         SELECT 
             i.id, i.name, i.type, i.city, i.region, i.address, 
             i.phone, i.email, i.description, i.activity_hours, 
@@ -17,8 +15,13 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.Inst
             (SELECT COUNT(*) FROM needs n WHERE n.institution_id = i.id) as needs_count 
         FROM institutions i
     `
-	filterQuery, args := filters.BuildInstitutionFilter(filter)
-	query += filterQuery
+	var args []interface{}
+	if city != "" {
+		query += " WHERE city = $1"
+		args = append(args, city)
+	}
+
+	query += " ORDER BY id DESC"
 
 	rows, err := r.postgres.Query(ctx, query, args...)
 	if err != nil {
@@ -86,20 +89,20 @@ func (r *Repository) CreateInstitution(ctx context.Context, i *models.Institutio
 }
 
 func (r *Repository) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
-	query := `
+    query := `
         SELECT id, name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude, created_at, updated_at
         FROM institutions
         WHERE id = $1
     `
-	var i models.Institution
-	// ВАЖНО: Убедись, что модель Institution совпадает с полями в базе
-	err := r.postgres.QueryRow(ctx, query, id).Scan(
-		&i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
-		&i.Phone, &i.Email, &i.Description, &i.ActivityHours,
-		&i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("get institution by id: %w", err)
-	}
-	return &i, nil
+    var i models.Institution
+    // ВАЖНО: Убедись, что модель Institution совпадает с полями в базе
+    err := r.postgres.QueryRow(ctx, query, id).Scan(
+        &i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
+        &i.Phone, &i.Email, &i.Description, &i.ActivityHours,
+        &i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
+    )
+    if err != nil {
+        return nil, fmt.Errorf("get institution by id: %w", err)
+    }
+    return &i, nil
 }

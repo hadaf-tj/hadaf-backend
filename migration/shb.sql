@@ -13,9 +13,7 @@ CREATE TABLE IF NOT EXISTS institutions (
     latitude DECIMAL(9,6),                  -- Координаты
     longitude DECIMAL(9,6),
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ,
-    is_deleted BOOLEAN DEFAULT FALSE,
-    deleted_at TIMESTAMPTZ DEFAULT NULL
+    updated_at TIMESTAMPTZ
 );
 
 -- Таблица пользователей
@@ -29,18 +27,14 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(50) NOT NULL DEFAULT 'donor', -- 'super_admin', 'employee', 'donor'
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ,
-    is_deleted BOOLEAN DEFAULT FALSE,
-    deleted_at TIMESTAMPTZ DEFAULT NULL
+    updated_at TIMESTAMPTZ
 );
 
 -- Категории нужд (Продукты, Гигиена, Одежда...)
 CREATE TABLE IF NOT EXISTS categories (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    is_deleted BOOLEAN DEFAULT FALSE,
-    deleted_at TIMESTAMPTZ DEFAULT NULL
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Таблица нужд (Потребности)
@@ -55,9 +49,7 @@ CREATE TABLE IF NOT EXISTS needs (
     received_qty DECIMAL(10,2) DEFAULT 0,   -- Сколько уже собрали
     urgency VARCHAR(20) DEFAULT 'medium',   -- 'low', 'medium', 'high' (для сортировки)
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ,
-    is_deleted BOOLEAN DEFAULT FALSE,
-    deleted_at TIMESTAMPTZ DEFAULT NULL
+    updated_at TIMESTAMPTZ
 );
 
 -- Таблица OTP (Одноразовые пароли для входа/регистрации)
@@ -70,7 +62,5 @@ CREATE TABLE IF NOT EXISTS otp (
     is_verified BOOLEAN DEFAULT FALSE,
     sent_at TIMESTAMPTZ DEFAULT NOW(),
     expires_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ,
-    is_deleted BOOLEAN DEFAULT FALSE,
-    deleted_at TIMESTAMPTZ DEFAULT NULL
+    updated_at TIMESTAMPTZ
 );

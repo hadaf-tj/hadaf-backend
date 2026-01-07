@@ -2,14 +2,14 @@ package smsProvider
 
 import (
 	"context"
-	"shb/internal/configs"
+	"shb/pkg/configs"
 )
 
 type SMSProvider struct {
-	cfg *configs.SMSConfig
+	cfg *configs.SMSProvider
 }
 
-func NewSMSProvider(cfg *configs.SMSConfig) *SMSProvider {
+func NewSMSProvider(cfg *configs.SMSProvider) *SMSProvider {
 	return &SMSProvider{cfg: cfg}
 }
 

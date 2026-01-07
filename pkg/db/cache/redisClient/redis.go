@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"shb/internal/configs"
+	"shb/pkg/configs"
 	"strconv"
 	"time"
 
@@ -16,31 +16,25 @@ type RedisCache struct {
 }
 
 func NewRedisClient() (*RedisCache, error) {
-	cfg, err := configs.InitConfigs()
-	if err != nil {
-		return nil, err
-	}
-
 	// 1. Пытаемся получить настройки из переменных окружения (для Docker)
 	host := os.Getenv("REDIS_HOST")
 	port := os.Getenv("REDIS_PORT")
 
 	// 2. Если переменных нет, используем дефолтные значения или те, что в конфиге (для локального запуска)
-	if cfg.Redis.Host == "" {
-		host = "localhost"
+	if host == "" {
+		host = "localhost" 
 	}
-	if cfg.Redis.Port == "" {
+	if port == "" {
 		port = "6379"
 	}
 
 	addr := fmt.Sprintf("%s:%s", host, port)
 
 	// Парсим остальные настройки
-	db := cfg.Redis.DefaultDB
-
+	db, _ := strconv.Atoi(configs.RedisDefaultDB)
+	
 	// Безопасное чтение таймаура
-	timeoutInt, err := strconv.Atoi(cfg.Redis.Timeout)
-
+	timeoutInt, _ := strconv.Atoi(configs.RedisTimeout)
 	if timeoutInt == 0 {
 		timeoutInt = 5 // Дефолтный таймаут 5 секунд, если в конфиге пусто
 	}

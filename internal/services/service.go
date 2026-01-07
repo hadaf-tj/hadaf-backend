@@ -4,7 +4,6 @@ import (
 	"context"
 	"shb/internal/configs"
 	"shb/internal/models"
-	"shb/internal/repositories/filters"
 	"shb/pkg/db/cache"
 	"shb/pkg/external/fs"
 	"shb/pkg/external/sms"
@@ -30,37 +29,37 @@ type IRepository interface {
 	IncreaseOTPAttempt(ctx context.Context, otpID int, phone string) error
 
 	// --- Institution Methods ---
-	GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error)
+	GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
 
 	// --- Needs Methods ---
 	CreateNeed(ctx context.Context, need *models.Need) (int, error)
-	GetNeedByID(ctx context.Context, id int) (*models.Need, error)
-	UpdateNeed(ctx context.Context, n *models.Need) error
-	DeleteNeed(ctx context.Context, id int) error
+    GetNeedByID(ctx context.Context, id int) (*models.Need, error)
+    UpdateNeed(ctx context.Context, n *models.Need) error
+    DeleteNeed(ctx context.Context, id int) error
 	GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error)
-
+	
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
 }
 type Service struct {
-	cfg    *configs.ServiceConfig // CHANGED: from configs.Service to configs.ServiceConfig
-	logger *zerolog.Logger
-	repo   IRepository
-	cache  cache.ICache
-	sms    sms.ISmsAdapter
-	token  tokens.ITokenIssuer
-	fs     fs.Storage
+    cfg    *configs.ServiceConfig // CHANGED: from configs.Service to configs.ServiceConfig
+    logger *zerolog.Logger
+    repo   IRepository
+    cache  cache.ICache
+    sms    sms.ISmsAdapter
+    token  tokens.ITokenIssuer
+    fs     fs.Storage
 }
 
 func NewService(cfg *configs.ServiceConfig, log *zerolog.Logger, repo IRepository, cache cache.ICache,
-	sms sms.ISmsAdapter, token tokens.ITokenIssuer, fs fs.Storage) *Service {
-	return &Service{
-		cfg:    cfg,
-		logger: log,
-		repo:   repo,
-		cache:  cache,
-		sms:    sms,
-		token:  token,
-		fs:     fs}
+    sms sms.ISmsAdapter, token tokens.ITokenIssuer, fs fs.Storage) *Service {
+    return &Service{
+        cfg:    cfg,
+        logger: log,
+        repo:   repo,
+        cache:  cache,
+        sms:    sms,
+        token:  token,
+        fs:     fs}
 }
