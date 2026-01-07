@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"shb/internal/models"
+	"shb/internal/repositories/filters"
 	"shb/pkg/myerrors"
 	"strconv"
 
@@ -20,11 +21,17 @@ import (
 // @Router /institutions [get]
 func (h *Handler) getAllInstitutions(c *gin.Context) {
 	ctx := c.Request.Context()
-	city := c.Query("city")
 
-	institutions, err := h.service.GetAllInstitutions(ctx, city)
+	var filter filters.InstitutionFilter
+
+	if err := c.BindQuery(&filter); err != nil {
+		h.logger.Error().Err(err).Msg("Error binding filters: " + err.Error())
+		h.handleError(c, myerrors.ErrGeneral)
+	}
+
+	institutions, err := h.service.GetAllInstitutions(ctx, filter)
 	if err != nil {
-		h.logger.Error().Err(err).Str("city", city).Msg("failed to get institutions")
+		h.logger.Error().Err(err).Msg("failed to get institutions")
 		h.handleError(c, myerrors.ErrGeneral)
 		return
 	}
@@ -63,20 +70,20 @@ func (h *Handler) createInstitution(c *gin.Context) {
 }
 
 func (h *Handler) getInstitutionByID(c *gin.Context) {
-    idStr := c.Param("id")
-    id, err := strconv.Atoi(idStr)
-    if err != nil {
-        h.handleError(c, myerrors.NewBadRequestErr("invalid id"))
-        return
-    }
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid id"))
+		return
+	}
 
-    institution, err := h.service.GetInstitutionByID(c.Request.Context(), id)
-    if err != nil {
-        // Здесь можно добавить проверку на sql.ErrNoRows и возвращать 404
-        h.logger.Error().Err(err).Int("id", id).Msg("failed to get institution")
-        h.handleError(c, myerrors.ErrGeneral)
-        return
-    }
+	institution, err := h.service.GetInstitutionByID(c.Request.Context(), id)
+	if err != nil {
+		// Здесь можно добавить проверку на sql.ErrNoRows и возвращать 404
+		h.logger.Error().Err(err).Int("id", id).Msg("failed to get institution")
+		h.handleError(c, myerrors.ErrGeneral)
+		return
+	}
 
-    h.success(c, institution)
+	h.success(c, institution)
 }

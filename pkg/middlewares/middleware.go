@@ -1,13 +1,14 @@
 package middlewares
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"shb/internal/configs"
 	"shb/internal/models"
-	"shb/pkg/configs"
 	"shb/pkg/constants"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Middleware struct {
@@ -16,9 +17,14 @@ type Middleware struct {
 }
 
 func NewMiddleware() *Middleware {
+	cfg, err := configs.InitConfigs()
+	if err != nil {
+		panic("failed init new middleware: " + err.Error())
+	}
+
 	return &Middleware{
-		accessSecret:  configs.AccessSecret,
-		refreshSecret: configs.RefreshSecret,
+		accessSecret:  cfg.Security.AccessTokenSecret,
+		refreshSecret: cfg.Security.RefreshTokenSecret,
 	}
 }
 

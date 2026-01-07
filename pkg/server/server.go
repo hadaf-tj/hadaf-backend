@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"net/http"
+	"shb/internal/configs"
 	"shb/internal/handlers"
-	"shb/pkg/configs"
 	"time"
 )
 
@@ -20,13 +20,16 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-func NewServer(cfg *configs.Server, handler *handlers.Handler) *Server {
+func NewServer(cfg *configs.ServerConfig, handler *handlers.Handler) *Server {
+	readTimeout, _ := time.ParseDuration(cfg.ReadTimeout)
+	writeTimeout, _ := time.ParseDuration(cfg.WriteTimeout)
+
 	return &Server{
 		httpServer: &http.Server{
 			Addr:           ":" + cfg.Port,
 			Handler:        handler.InitRoutes(),
-			ReadTimeout:    time.Duration(cfg.ReadTimeout) * time.Second,
-			WriteTimeout:   time.Duration(cfg.WriteTimeout) * time.Second,
+			ReadTimeout:    readTimeout,
+			WriteTimeout:   writeTimeout,
 			MaxHeaderBytes: http.DefaultMaxHeaderBytes,
 		},
 	}
