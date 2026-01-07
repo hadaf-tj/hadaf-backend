@@ -2,12 +2,14 @@ package logger
 
 import (
 	"fmt"
-	"github.com/rs/zerolog"
 	"os"
-	"shb/pkg/configs"
+	"shb/internal/configs"
 	"shb/pkg/constants"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 type Logger struct {
@@ -16,7 +18,7 @@ type Logger struct {
 
 var instance *Logger
 
-func NewLogger(cfg *configs.Logger) (*Logger, error) {
+func NewLogger(cfg *configs.LoggerConfig) (*Logger, error) {
 	var (
 		output *os.File
 		err    error
@@ -45,7 +47,9 @@ func NewLogger(cfg *configs.Logger) (*Logger, error) {
 		Timestamp().
 		Logger()
 
-	if cfg.IncludeCaller {
+	includeCaller, _ := strconv.ParseBool(cfg.IncludeCaller)
+
+	if includeCaller {
 		zl = zl.With().Caller().Logger()
 	}
 

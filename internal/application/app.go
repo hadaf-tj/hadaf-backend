@@ -60,10 +60,10 @@ func NewApplication() *App {
 	}
 
 	fileStorage, err := minioFs.NewMinIOStorage(minioFs.MinIOConfig{
-		Bucket:    internalConfigs.MinioBucket,
-		Endpoint:  internalConfigs.MinioEndpoint,
-		AccessKey: internalConfigs.MinioAccessKey,
-		SecretKey: internalConfigs.MinioSecretKey,
+		Bucket:    cfg.Minio.Bucket,
+		Endpoint:  cfg.Minio.Endpoint,
+		AccessKey: cfg.Minio.AccessKey,
+		SecretKey: cfg.Minio.SecretKey,
 		Logger:    &log.Logger,
 	})
 	if err != nil {
