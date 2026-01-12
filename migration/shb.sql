@@ -60,6 +60,16 @@ CREATE TABLE IF NOT EXISTS needs (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
+CREATE TABLE IF NOT EXISTS needs_history (
+    id SERIAL PRIMARY KEY,
+    need_id INT NOT NULL REFERENCES needs(id) ON DELETE CASCADE,
+    comment TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMPTZ DEFAULT NULL
+);
+
+
 -- Таблица OTP (Одноразовые пароли для входа/регистрации)
 CREATE TABLE IF NOT EXISTS otp (
     id SERIAL PRIMARY KEY,

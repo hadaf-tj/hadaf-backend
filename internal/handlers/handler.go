@@ -33,7 +33,7 @@ type IService interface {
 	CreateNeed(ctx context.Context, need *models.Need) (int, error)
 	UpdateNeed(ctx context.Context, n *models.Need) error
 	DeleteNeed(ctx context.Context, id int) error
-	GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error)
+	GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error)
 }
 
 type Handler struct {

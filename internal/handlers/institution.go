@@ -24,9 +24,10 @@ func (h *Handler) getAllInstitutions(c *gin.Context) {
 
 	var filter filters.InstitutionFilter
 
-	if err := c.BindQuery(&filter); err != nil {
+	if err := c.ShouldBindQuery(&filter); err != nil {
 		h.logger.Error().Err(err).Msg("Error binding filters: " + err.Error())
 		h.handleError(c, myerrors.ErrGeneral)
+		return
 	}
 
 	institutions, err := h.service.GetAllInstitutions(ctx, filter)

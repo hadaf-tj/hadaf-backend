@@ -17,7 +17,7 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.Inst
             (SELECT COUNT(*) FROM needs n WHERE n.institution_id = i.id) as needs_count 
         FROM institutions i
     `
-	filterQuery, args := filters.BuildInstitutionFilter(filter)
+	filterQuery, args := filters.BuildGetAllInstitutionFilter(filter)
 	query += filterQuery
 
 	rows, err := r.postgres.Query(ctx, query, args...)
