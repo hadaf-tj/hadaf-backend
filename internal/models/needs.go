@@ -3,22 +3,24 @@ package models
 import "time"
 
 type Need struct {
-	ID            int       `json:"id" db:"id"`
-	InstitutionID int       `json:"institution_id" db:"institution_id"`
-	CategoryID    *int      `json:"category_id" db:"category_id"`
-	Name          string    `json:"name" db:"name"`
-	Description   string    `json:"description" db:"description"`
-	Unit          string    `json:"unit" db:"unit"`
-	RequiredQty   float64   `json:"required_qty" db:"required_qty"`
-	ReceivedQty   float64   `json:"received_qty" db:"received_qty"`
-	Urgency       string    `json:"urgency" db:"urgency"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	ID            int        `json:"id"`
+	InstitutionID int        `json:"institution_id"`
+	CategoryID    *int       `json:"category_id"`
+	Name          string     `json:"name"`
+	Description   *string    `json:"description"`
+	Unit          string     `json:"unit"`
+	RequiredQty   float64    `json:"required_qty"`
+	ReceivedQty   float64    `json:"received_qty"`
+	Urgency       string     `json:"urgency"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     *time.Time `json:"updated_at"`
+	IsDeleted     bool       `json:"is_deleted"`
+	DeletedAt     *time.Time `json:"deleted_at"`
 }
 
 type UpdateNeedInput struct {
-    Title       *string `json:"title"`
-    Description *string `json:"description"`
-    Priority    *string `json:"priority"`
-    // Используем указатели (*string), чтобы понимать, какие поля обновлять (nil = не обновлять)
+	Title       *string `json:"title"`
+	Description *string `json:"description"`
+	Priority    *string `json:"priority"`
+	// Используем указатели (*string), чтобы понимать, какие поля обновлять (nil = не обновлять)
 }

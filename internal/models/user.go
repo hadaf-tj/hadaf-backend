@@ -10,25 +10,30 @@ const (
 )
 
 type User struct {
-	ID            int       `db:"id"`
-	InstitutionID *int      `db:"institution_id"` // Новое поле (может быть nil)
-	FullName      string    `db:"full_name"`
-	Phone         string    `db:"phone"`
-	Email         string    `db:"email"`
-	Password      string    `db:"password"`
-	Role          string    `db:"role"`
-	IsActive      bool      `db:"is_active"`
-	CreatedAt     time.Time `db:"created_at"`
-	UpdatedAt     time.Time `db:"updated_at"`
+	ID            int        `json:"id"`
+	InstitutionID *int       `json:"institution_id"`
+	FullName      *string    `json:"full_name"`
+	Phone         *string    `json:"phone"`
+	Email         *string    `json:"email"`
+	Password      *string    `json:"password"`
+	Role          string     `json:"role"`
+	IsActive      bool       `json:"is_active"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     *time.Time `json:"updated_at"`
+	IsDeleted     bool       `json:"is_deleted"`
+	DeletedAt     *time.Time `json:"deleted_at"`
 }
 
 type OTP struct {
-	ID         int
-	Attempt    int
-	Receiver   string
-	Method     string
-	OTPCode    string
-	IsVerified bool
-	SentAt     time.Time
-	ExpiresAt  time.Time
+	ID         int        `json:"id"`
+	Attempt    int        `json:"attempt"`
+	Receiver   string     `json:"receiver"`
+	Method     *string    `json:"method"`
+	OTPCode    string     `json:"otp_code"`
+	IsVerified bool       `json:"is_verified"`
+	SentAt     time.Time  `json:"sent_at"`
+	ExpiresAt  *time.Time `json:"expires_at"`
+	UpdatedAt  *time.Time `json:"updated_at"`
+	IsDeleted  bool       `json:"is_deleted"`
+	DeletedAt  *time.Time `json:"deleted_at"`
 }
