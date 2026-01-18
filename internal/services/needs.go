@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
 	"shb/pkg/myerrors"
@@ -48,25 +49,50 @@ func (s *Service) CreateNeed(ctx context.Context, need *models.Need) (int, error
 }
 
 func (s *Service) UpdateNeed(ctx context.Context, n *models.Need) error {
-	existing, err := s.repo.GetNeedByID(ctx, n.ID)
+	// 1. Получаем текущее состояние (можно добавить проверку прав s.checkPermission)
+	oldNeed, err := s.repo.GetNeedByID(ctx, n.ID)
 	if err != nil {
 		return err
 	}
-	// Uncomment when permissions are needed
-	// if err := s.checkPermission(ctx, existing.InstitutionID); err != nil { return err }
 
-	existing.Name = n.Name
-	existing.Description = n.Description
-	existing.Unit = n.Unit
-	existing.RequiredQty = n.RequiredQty
-	existing.ReceivedQty = n.ReceivedQty
-	existing.Urgency = n.Urgency
+	// 2. Обновляем запись
+	// Мапим поля, которые пришли, в старую запись (или используем n напрямую, если фронт шлет всё)
+	oldNeed.Name = n.Name
+	oldNeed.Description = n.Description
+	oldNeed.Unit = n.Unit
+	oldNeed.RequiredQty = n.RequiredQty
+	oldNeed.ReceivedQty = n.ReceivedQty
+	oldNeed.Urgency = n.Urgency
 
-	return s.repo.UpdateNeed(ctx, existing)
+	if err := s.repo.UpdateNeed(ctx, oldNeed); err != nil {
+		return err
+	}
+
+	// 3. Пишем историю
+	comment := fmt.Sprintf("Updating data: %s. Progress: %.0f/%.0f", n.Name, n.ReceivedQty, n.RequiredQty)
+	_ = s.repo.CreateNeedHistory(ctx, &models.NeedsHistory{
+		NeedID:  n.ID,
+		Comment: &comment,
+	})
+
+	return nil
 }
 
 func (s *Service) DeleteNeed(ctx context.Context, id int) error {
-	return s.repo.DeleteNeed(ctx, id)
+	// Можно добавить проверку прав здесь
+
+	if err := s.repo.DeleteNeed(ctx, id); err != nil {
+		return err
+	}
+
+	// Пишем историю удаления
+	comment := "Need is deleted (to archive)"
+	_ = s.repo.CreateNeedHistory(ctx, &models.NeedsHistory{
+		NeedID:  id,
+		Comment: &comment,
+	})
+
+	return nil
 }
 
 func (s *Service) GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error) {

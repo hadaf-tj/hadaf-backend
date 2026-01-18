@@ -85,7 +85,7 @@ func NewApplication() *App {
 		cfg.Security.AccessTokenTTL,
 		cfg.Security.RefreshTokenTTL,
 	)
-	middleware := middlewares.NewMiddleware()
+	middleware := middlewares.NewMiddleware(cfg)
 
 	repository := repositories.NewRepository(postgresConn, &log.Logger)
 
