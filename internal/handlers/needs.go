@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"shb/internal/models"
+	"shb/internal/repositories/filters"
 	"shb/pkg/myerrors"
 	"strconv"
 
@@ -25,7 +26,7 @@ func (h *Handler) createNeed(c *gin.Context) {
 func (h *Handler) updateNeed(c *gin.Context) {
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
-	
+
 	var input models.Need
 	if err := c.ShouldBindJSON(&input); err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid input"))
@@ -51,10 +52,18 @@ func (h *Handler) deleteNeed(c *gin.Context) {
 }
 
 func (h *Handler) getNeedsByInstitution(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var filter filters.NeedsFilter
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid need by institution input"))
+		return
+	}
+
 	idStr := c.Param("id") // ID учреждения
 	id, _ := strconv.Atoi(idStr)
-	
-	needs, err := h.service.GetNeedsByInstitution(c.Request.Context(), id)
+
+	needs, err := h.service.GetNeedsByInstitution(ctx, filter, id)
 	if err != nil {
 		h.handleError(c, err)
 		return

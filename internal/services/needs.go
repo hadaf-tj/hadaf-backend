@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"shb/internal/models"
+	"shb/internal/repositories/filters"
 	"shb/pkg/myerrors"
 )
 
@@ -43,7 +44,7 @@ func (s *Service) CreateNeed(ctx context.Context, need *models.Need) (int, error
 	if err != nil {
 		return 0, err
 	}
-	return id, nil 
+	return id, nil
 }
 
 func (s *Service) UpdateNeed(ctx context.Context, n *models.Need) error {
@@ -51,7 +52,7 @@ func (s *Service) UpdateNeed(ctx context.Context, n *models.Need) error {
 	if err != nil {
 		return err
 	}
-    // Uncomment when permissions are needed
+	// Uncomment when permissions are needed
 	// if err := s.checkPermission(ctx, existing.InstitutionID); err != nil { return err }
 
 	existing.Name = n.Name
@@ -68,6 +69,6 @@ func (s *Service) DeleteNeed(ctx context.Context, id int) error {
 	return s.repo.DeleteNeed(ctx, id)
 }
 
-func (s *Service) GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error) {
-	return s.repo.GetNeedsByInstitution(ctx, institutionID)
+func (s *Service) GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error) {
+	return s.repo.GetNeedsByInstitution(ctx, filter, institutionID)
 }

@@ -23,7 +23,7 @@ type InstitutionFilter struct {
 	DeletedAtTo   *time.Time `form:"deleted_at_to"`
 }
 
-func BuildInstitutionFilter(filter InstitutionFilter) (string, []interface{}) {
+func BuildGetAllInstitutionFilter(filter InstitutionFilter) (string, []interface{}) {
 	filterQuery := ""
 	var args []interface{}
 

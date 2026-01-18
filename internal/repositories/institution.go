@@ -13,11 +13,12 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.Inst
         SELECT 
             i.id, i.name, i.type, i.city, i.region, i.address, 
             i.phone, i.email, i.description, i.activity_hours, 
-            i.latitude, i.longitude, i.created_at, i.updated_at,
-            (SELECT COUNT(*) FROM needs n WHERE n.institution_id = i.id) as needs_count 
+            i.latitude, i.longitude, i.created_at, i.updated_at
         FROM institutions i
     `
-	filterQuery, args := filters.BuildInstitutionFilter(filter)
+
+	// Добавляем фильтры
+	filterQuery, args := filters.BuildGetAllInstitutionFilter(filter)
 	query += filterQuery
 
 	rows, err := r.postgres.Query(ctx, query, args...)
@@ -34,28 +35,12 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.Inst
 			&i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
 			&i.Phone, &i.Email, &i.Description, &i.ActivityHours,
 			&i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
-			&i.NeedsCount,
 		); err != nil {
 			return nil, fmt.Errorf("scan institution: %w", err)
 		}
 
-		institutions = append(institutions, &models.Institution{
-			ID:            i.ID,
-			Name:          i.Name,
-			Type:          i.Type,
-			City:          i.City,
-			Region:        i.Region,
-			Address:       i.Address,
-			Phone:         i.Phone,
-			Email:         i.Email,
-			Description:   i.Description,
-			ActivityHours: i.ActivityHours,
-			Latitude:      i.Latitude,
-			Longitude:     i.Longitude,
-			CreatedAt:     i.CreatedAt,
-			UpdatedAt:     i.UpdatedAt,
-			NeedsCount:    i.NeedsCount,
-		})
+		// Используем маппер
+		institutions = append(institutions, i.ToDomain())
 	}
 
 	if err = rows.Err(); err != nil {
@@ -68,10 +53,12 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.Inst
 // CreateInstitution вставляет новое учреждение в базу
 func (r *Repository) CreateInstitution(ctx context.Context, i *models.Institution) (int, error) {
 	query := `
-		INSERT INTO institutions (name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude)
+		INSERT INTO institutions 
+			(name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id
 	`
+
 	var id int
 	err := r.postgres.QueryRow(ctx, query,
 		i.Name, i.Type, i.City, i.Region, i.Address,
@@ -85,21 +72,25 @@ func (r *Repository) CreateInstitution(ctx context.Context, i *models.Institutio
 	return id, nil
 }
 
+// GetInstitutionByID получает учреждение по ID
 func (r *Repository) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
 	query := `
-        SELECT id, name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude, created_at, updated_at
+        SELECT id, name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude, created_at, updated_at, is_deleted, deleted_at
         FROM institutions
         WHERE id = $1
     `
-	var i models.Institution
-	// ВАЖНО: Убедись, что модель Institution совпадает с полями в базе
+
+	var dbI dbInstitution
 	err := r.postgres.QueryRow(ctx, query, id).Scan(
-		&i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
-		&i.Phone, &i.Email, &i.Description, &i.ActivityHours,
-		&i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
+		&dbI.ID, &dbI.Name, &dbI.Type, &dbI.City, &dbI.Region, &dbI.Address,
+		&dbI.Phone, &dbI.Email, &dbI.Description, &dbI.ActivityHours,
+		&dbI.Latitude, &dbI.Longitude, &dbI.CreatedAt, &dbI.UpdatedAt,
+		&dbI.IsDeleted, &dbI.DeletedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get institution by id: %w", err)
 	}
-	return &i, nil
+
+	// Конвертируем dbInstitution → models.Institution через маппер
+	return dbI.ToDomain(), nil
 }

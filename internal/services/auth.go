@@ -18,12 +18,14 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 		return 0, fmt.Errorf("otp code generation failed: %s", err)
 	}
 
+	method := "sms"
+	expiresAt := time.Now().UTC().Add(s.cfg.Security.OTPDuration)
 	otp := &models.OTP{
 		Receiver:   receiver,
-		Method:     "sms",
+		Method:     &method,
 		OTPCode:    otpCode,
 		SentAt:     time.Now().UTC(),
-		ExpiresAt:  time.Now().UTC().Add(s.cfg.Security.OTPDuration),
+		ExpiresAt:  &expiresAt,
 		IsVerified: false,
 	}
 
@@ -86,7 +88,7 @@ func (s *Service) ensureUserExists(ctx context.Context, phone string) (*models.U
 		return user, nil
 	}
 
-	newUser := &models.User{Phone: phone}
+	newUser := &models.User{Phone: &phone}
 	err = s.repo.CreateUser(ctx, newUser)
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
@@ -103,7 +105,7 @@ func (s *Service) Login(ctx context.Context, phone, password string) (*models.To
 		return nil, fmt.Errorf("get user by phone: %w", err)
 	}
 
-	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(password)); err != nil {
 		//todo нужно ли блокировать при большом количестве неудачных попытках
 		return nil, myerrors.NewUnauthorizedErr("invalid phone_number or password")
 	}
@@ -133,10 +135,11 @@ func (s *Service) Register(ctx context.Context, phone, password, fullName string
 	}
 
 	// 3. Создаем модель
+	hashedPasswordStr := string(hashedPassword)
 	newUser := &models.User{
-		Phone:         phone,
-		Password:      string(hashedPassword),
-		FullName:      fullName,
+		Phone:         &phone,
+		Password:      &hashedPasswordStr,
+		FullName:      &fullName,
 		Role:          models.RoleEmployee, // По умолчанию создаем Сотрудника
 		IsActive:      true,
 		InstitutionID: &institutionID,

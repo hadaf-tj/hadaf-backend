@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"shb/internal/models"
+	"shb/internal/repositories/filters"
 )
 
 func (r *Repository) CreateNeed(ctx context.Context, n *models.Need) (int, error) {
@@ -56,14 +57,17 @@ func (r *Repository) DeleteNeed(ctx context.Context, id int) error {
 	return err
 }
 
-func (r *Repository) GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error) {
+func (r *Repository) GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error) {
 	query := `
 		SELECT id, institution_id, name, description, unit, required_qty, received_qty, urgency, created_at
 		FROM needs
-		WHERE institution_id = $1
-		ORDER BY urgency = 'high' DESC, created_at DESC
 	`
-	rows, err := r.postgres.Query(ctx, query, institutionID)
+
+	filterQuery, args := filters.GetNeedsByInstitution(filter, institutionID)
+
+	query += filterQuery
+
+	rows, err := r.postgres.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

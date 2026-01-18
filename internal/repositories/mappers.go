@@ -1,0 +1,118 @@
+package repositories
+
+import (
+	"shb/internal/models"
+)
+
+func (u *dbUser) ToDomain() *models.User {
+	if u == nil {
+		return nil
+	}
+
+	return &models.User{
+		ID:            u.ID,
+		InstitutionID: u.InstitutionID,
+		FullName:      u.FullName,
+		Phone:         u.Phone,
+		Email:         u.Email,
+		Password:      u.Password,
+		Role:          u.Role,
+		IsActive:      u.IsActive,
+		CreatedAt:     u.CreatedAt,
+		UpdatedAt:     u.UpdatedAt,
+		IsDeleted:     u.IsDeleted,
+		DeletedAt:     u.DeletedAt,
+	}
+}
+
+func (n *dbNeed) ToDomain() *models.Need {
+	if n == nil {
+		return nil
+	}
+
+	return &models.Need{
+		ID:            n.ID,
+		InstitutionID: n.InstitutionID,
+		CategoryID:    n.CategoryID,
+		Name:          n.Name,
+		Description:   n.Description,
+		Unit:          n.Unit,
+		RequiredQty:   n.RequiredQty,
+		ReceivedQty:   n.ReceivedQty,
+		Urgency:       n.Urgency,
+		CreatedAt:     n.CreatedAt,
+		UpdatedAt:     n.UpdatedAt,
+		IsDeleted:     n.IsDeleted,
+		DeletedAt:     n.DeletedAt,
+	}
+}
+
+func (o *dbOtp) ToDomain() *models.OTP {
+	if o == nil {
+		return nil
+	}
+	return &models.OTP{
+		ID:         o.ID,
+		Attempt:    o.Attempt,
+		Receiver:   o.Receiver,
+		Method:     o.Method,
+		OTPCode:    o.OTPCode,
+		IsVerified: o.IsVerified,
+		SentAt:     o.SentAt,
+		ExpiresAt:  o.ExpiresAt,
+		UpdatedAt:  o.UpdatedAt,
+		IsDeleted:  o.IsDeleted,
+		DeletedAt:  o.DeletedAt,
+	}
+}
+
+func (i *dbInstitution) ToDomain() *models.Institution {
+	if i == nil {
+		return nil
+	}
+	return &models.Institution{
+		ID:            i.ID,
+		Name:          i.Name,
+		Type:          i.Type,
+		City:          i.City,
+		Region:        i.Region,
+		Address:       i.Address,
+		Phone:         i.Phone,
+		Email:         i.Email,
+		Description:   i.Description,
+		ActivityHours: i.ActivityHours,
+		Latitude:      i.Latitude,
+		Longitude:     i.Longitude,
+		CreatedAt:     i.CreatedAt,
+		UpdatedAt:     i.UpdatedAt,
+		IsDeleted:     i.IsDeleted,
+		DeletedAt:     i.DeletedAt,
+	}
+}
+
+func (c *dbCategory) ToDomain() *models.Category {
+	if c == nil {
+		return nil
+	}
+	return &models.Category{
+		ID:        c.ID,
+		Name:      c.Name,
+		CreatedAt: c.CreatedAt,
+		IsDeleted: c.IsDeleted,
+		DeletedAt: c.DeletedAt,
+	}
+}
+
+func (h *dbNeedHistory) ToDomain() *models.NeedsHistory {
+	if h == nil {
+		return nil
+	}
+	return &models.NeedsHistory{
+		ID:        h.ID,
+		NeedID:    h.NeedID,
+		Comment:   h.Comment,
+		CreatedAt: h.CreatedAt,
+		IsDeleted: h.IsDeleted,
+		DeletedAt: h.DeletedAt,
+	}
+}
