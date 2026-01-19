@@ -96,3 +96,8 @@ func (r *Repository) CreateUser(ctx context.Context, u *models.User) error {
 	}
 	return nil
 }
+func (r *Repository) ActivateUser(ctx context.Context, id int) error {
+	query := `UPDATE users SET is_active = true, updated_at = NOW() WHERE id = $1`
+	_, err := r.postgres.Exec(ctx, query, id)
+	return err
+}

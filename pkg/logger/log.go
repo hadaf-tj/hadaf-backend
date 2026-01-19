@@ -1,12 +1,7 @@
 package logger
 
 import (
-	"fmt"
 	"os"
-	"shb/internal/configs"
-	"shb/pkg/constants"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -16,56 +11,40 @@ type Logger struct {
 	zerolog.Logger
 }
 
+// Config определяем прямо тут, чтобы не зависеть от внешних пакетов
+type Config struct {
+	Level         string
+	IncludeCaller bool
+}
+
 var instance *Logger
 
-func NewLogger(cfg *configs.LoggerConfig) (*Logger, error) {
+func NewLogger(cfg Config) (*Logger, error) {
 	var (
 		output *os.File
 		err    error
 	)
 
-	if cfg.LogPath != "" {
-		output, err = os.OpenFile(cfg.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open log file: %w", err)
-		}
-	} else {
-		output = os.Stdout
-	}
-
-	level, err := zerolog.ParseLevel(strings.ToLower(cfg.Level))
-	if err != nil {
-		return nil, fmt.Errorf("invalid log level: %w", err)
-	}
-	zerolog.SetGlobalLevel(level)
+	// ... логика открытия файла логов, если нужно ...
+	output = os.Stdout
 
 	zerolog.TimeFieldFormat = time.RFC3339
 
+	level, err := zerolog.ParseLevel(cfg.Level)
+	if err != nil {
+		level = zerolog.DebugLevel
+	}
+
 	zl := zerolog.New(output).
-		Hook(RequestIDHook{}).
+		Level(level).
 		With().
 		Timestamp().
 		Logger()
 
-	includeCaller, _ := strconv.ParseBool(cfg.IncludeCaller)
-
-	if includeCaller {
+	if cfg.IncludeCaller {
 		zl = zl.With().Caller().Logger()
 	}
 
-	instance = &Logger{Logger: zl}
-
+	instance = &Logger{zl}
 	return instance, nil
-}
-
-type RequestIDHook struct{}
-
-func (RequestIDHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
-	ctx := e.GetCtx()
-	if ctx == nil {
-		return
-	}
-	if requestID, ok := ctx.Value(constants.RequestIDKey).(string); ok && requestID != "" {
-		e.Str("request_id", requestID)
-	}
 }

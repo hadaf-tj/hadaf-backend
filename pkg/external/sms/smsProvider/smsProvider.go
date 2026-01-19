@@ -2,17 +2,24 @@ package smsProvider
 
 import (
 	"context"
-	"shb/internal/configs"
+	"fmt"
 )
 
-type SMSProvider struct {
-	cfg *configs.SMSConfig
+type SMSConfig struct {
+	APIKey     string
+	SenderName string
 }
 
-func NewSMSProvider(cfg *configs.SMSConfig) *SMSProvider {
+type SMSProvider struct {
+	cfg SMSConfig
+}
+
+func NewSMSProvider(cfg SMSConfig) *SMSProvider {
 	return &SMSProvider{cfg: cfg}
 }
 
-func (provider *SMSProvider) SendSms(ctx context.Context, phone, message string) error {
+func (s *SMSProvider) SendSms(ctx context.Context, phone string, message string) error {
+	// Mock implementation
+	fmt.Printf("[SMS MOCK] To: %s, Body: %s, Sender: %s\n", phone, message, s.cfg.SenderName)
 	return nil
 }

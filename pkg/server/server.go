@@ -3,10 +3,15 @@ package server
 import (
 	"context"
 	"net/http"
-	"shb/internal/configs"
-	"shb/internal/handlers"
 	"time"
 )
+
+// Config - локальная структура настроек сервера
+type Config struct {
+	Port         string
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+}
 
 type Server struct {
 	httpServer *http.Server
@@ -20,17 +25,14 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-func NewServer(cfg *configs.ServerConfig, handler *handlers.Handler) *Server {
-	readTimeout, _ := time.ParseDuration(cfg.ReadTimeout)
-	writeTimeout, _ := time.ParseDuration(cfg.WriteTimeout)
-
+func NewServer(cfg Config, handler http.Handler) *Server {
 	return &Server{
 		httpServer: &http.Server{
 			Addr:           ":" + cfg.Port,
-			Handler:        handler.InitRoutes(),
-			ReadTimeout:    readTimeout,
-			WriteTimeout:   writeTimeout,
-			MaxHeaderBytes: http.DefaultMaxHeaderBytes,
+			Handler:        handler,
+			ReadTimeout:    cfg.ReadTimeout,
+			WriteTimeout:   cfg.WriteTimeout,
+			MaxHeaderBytes: 1 << 20, // 1 MB
 		},
 	}
 }
