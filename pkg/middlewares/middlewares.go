@@ -3,24 +3,27 @@ package middlewares
 import (
 	"fmt"
 	"net/http"
-	"shb/internal/configs"
+	"strings"
+
 	"shb/internal/models"
 	"shb/pkg/myerrors"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type Middleware struct {
-	cfg *configs.Config
+	jwtSecret string
 }
 
-func NewMiddleware(cfg *configs.Config) *Middleware {
-	return &Middleware{cfg: cfg}
+// NewMiddleware теперь принимает секрет как аргумент
+func NewMiddleware(jwtSecret string) *Middleware {
+	return &Middleware{
+		jwtSecret: jwtSecret,
+	}
 }
 
-// AuthMiddleware проверяет JWT и роли
+// AuthMiddleware (код остается прежним, но использует m.jwtSecret)
 func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -42,7 +45,8 @@ func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte(m.cfg.Security.JWTSecretKey), nil
+			// Используем локальное поле
+			return []byte(m.jwtSecret), nil
 		})
 
 		if err != nil || !token.Valid {

@@ -7,10 +7,12 @@ import (
 	"shb/internal/configs"
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
+	"shb/pkg/constants"
 	"shb/pkg/middlewares"
 	"shb/pkg/myerrors"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -27,7 +29,7 @@ type IService interface {
 	Register(ctx context.Context, email, phone, password, fullName, role string, institutionID *int) (*models.TokenResponse, error)
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
 
-	GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error)
+	GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
 	
@@ -139,4 +141,33 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 		c.JSON(http.StatusInternalServerError, myerrors.InternalError())
 	}
 	c.Abort()
+}
+
+func (h *Handler) RequestID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestID := c.Request.Header.Get(constants.RequestIDHeader)
+		if requestID == "" {
+			requestID = uuid.New().String()
+		}
+		ctx := c.Request.Context()
+		ctx = context.WithValue(ctx, constants.RequestIDKey, requestID)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
+func (h *Handler) CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, x-request-id")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }

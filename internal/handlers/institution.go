@@ -2,35 +2,31 @@ package handlers
 
 import (
 	"shb/internal/models"
-	"shb/internal/repositories/filters"
 	"shb/pkg/myerrors"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
-// getAllInstitutions возвращает список учреждений
-// @Summary Get all institutions
-// @Description Возвращает список всех учреждений с возможностью фильтрации по городу
-// @Tags Institutions
-// @Accept json
-// @Produce json
-// @Param city query string false "City filter"
-// @Success 200 {object} models.Response
-// @Failure 500 {object} models.ErrorResponse
-// @Router /institutions [get]
 func (h *Handler) getAllInstitutions(c *gin.Context) {
 	ctx := c.Request.Context()
-
-	var filter filters.InstitutionFilter
-
-	if err := c.ShouldBindQuery(&filter); err != nil {
-		h.logger.Error().Err(err).Msg("Error binding filters: " + err.Error())
-		h.handleError(c, myerrors.ErrGeneral)
-		return
+	
+	// Читаем параметры
+	search := c.Query("search") // Поиск по имени или городу
+	iType := c.Query("type")    // Тип
+	sortBy := c.Query("sort")   // 'needs_desc' или 'distance'
+	
+	// Координаты пользователя (если он разрешил геолокацию)
+	latStr := c.Query("lat")
+	lngStr := c.Query("lng")
+	
+	var lat, lng float64
+	if latStr != "" && lngStr != "" {
+		lat, _ = strconv.ParseFloat(latStr, 64)
+		lng, _ = strconv.ParseFloat(lngStr, 64)
 	}
 
-	institutions, err := h.service.GetAllInstitutions(ctx, filter)
+	institutions, err := h.service.GetAllInstitutions(ctx, search, iType, lat, lng, sortBy)
 	if err != nil {
 		h.logger.Error().Err(err).Msg("failed to get institutions")
 		h.handleError(c, myerrors.ErrGeneral)
@@ -40,17 +36,6 @@ func (h *Handler) getAllInstitutions(c *gin.Context) {
 	h.success(c, institutions)
 }
 
-// createInstitution создает новое учреждение
-// @Summary Create institution
-// @Description Создает новое учреждение (для админов)
-// @Tags Institutions
-// @Accept json
-// @Produce json
-// @Param input body models.Institution true "Institution data"
-// @Success 200 {object} models.Response
-// @Failure 400 {object} models.ErrorResponse
-// @Failure 500 {object} models.ErrorResponse
-// @Router /institutions [post]
 func (h *Handler) createInstitution(c *gin.Context) {
 	var input models.Institution
 	if err := c.ShouldBindJSON(&input); err != nil {

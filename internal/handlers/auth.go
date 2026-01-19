@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"shb/pkg/myerrors"
 	"shb/pkg/utils"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,9 +27,8 @@ func (h *Handler) sendOTP(c *gin.Context) {
 		return
 	}
 
-	if !utils.IsValidPhoneNumberByCountry(ctx, in.Receiver) {
-		logger.Warn().Str("receiver", in.Receiver).Msg("invalid receiver")
-		h.handleError(c, myerrors.NewBadRequestErr("invalid phone number"))
+	if !strings.Contains(in.Receiver, "@") && !utils.IsValidPhoneNumberByCountry(ctx, in.Receiver) {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid email or phone number"))
 		return
 	}
 
@@ -78,11 +78,13 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 		return
 	}
 
-	if !utils.IsValidPhoneNumberByCountry(ctx, in.Receiver) {
-		logger.Warn().Str("receiver", in.Receiver).Msg("invalid receiver")
-		h.handleError(c, myerrors.NewBadRequestErr("invalid receiver"))
-		return
-	}
+	in.Receiver = strings.ToLower(strings.TrimSpace(in.Receiver))
+    in.OTP = strings.TrimSpace(in.OTP)
+	if !strings.Contains(in.Receiver, "@") && !utils.IsValidPhoneNumberByCountry(ctx, in.Receiver) {
+        logger.Warn().Str("receiver", in.Receiver).Msg("invalid receiver")
+        h.handleError(c, myerrors.NewBadRequestErr("invalid receiver format"))
+        return
+    }
 
 	key := fmt.Sprintf("user:%s:verify_otp", in.Receiver)
 	ok, err := h.limiter.Allow(ctx, key, h.cfg.Service.Security.OTPMaxAttempts,
@@ -127,7 +129,8 @@ func (h *Handler) register(c *gin.Context) {
 		InstitutionID *int   `json:"institution_id"`                 
 		Role          string `json:"role" binding:"required"`        // 'volunteer' или 'institution'
 	}{}
-
+	
+	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
 	if err := c.ShouldBindJSON(&in); err != nil {
 		h.logger.Warn().Err(err).Msg("invalid register input")
 		h.handleError(c, myerrors.NewBadRequestErr("invalid input parameters"))
@@ -135,14 +138,16 @@ func (h *Handler) register(c *gin.Context) {
 	}
 
 	// Вызываем сервис
-	tokens, err := h.service.Register(ctx, in.Email, in.Phone, in.Password, in.FullName, in.Role, in.InstitutionID)
-	if err != nil {
-		h.logger.Error().Err(err).Str("email", in.Email).Msg("registration failed")
-		h.handleError(c, err)
-		return
-	}
+	_, err := h.service.Register(ctx, in.Email, in.Phone, in.Password, in.FullName, in.Role, in.InstitutionID)
+    if err != nil {
+        h.handleError(c, err)
+        return
+    }
 
-	h.success(c, tokens)
+	h.success(c, gin.H{
+        "message": "verification_required",
+        "email":   in.Email,
+    })
 }
 
 func (h *Handler) login(c *gin.Context) {

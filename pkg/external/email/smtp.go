@@ -6,45 +6,52 @@ import (
 	"os"
 )
 
-// ISender интерфейс для отправки (чтобы потом можно было замокать)
 type ISender interface {
-	SendOTP(to string, code string) error
+	SendOTP(receiver string, code string) error
 }
 
 type SmtpSender struct {
 	host     string
 	port     string
-	fromEmail    string
+	email    string
 	password string
 }
 
 func NewSmtpSender() *SmtpSender {
-	// Читаем настройки из ENV. Убедись, что они есть в .env
 	return &SmtpSender{
-		host:      os.Getenv("SMTP_HOST"),     // например: smtp.gmail.com
-		port:      os.Getenv("SMTP_PORT"),     // например: 587
-		fromEmail: os.Getenv("SMTP_EMAIL"),    // твоя почта hadaf@gmail.com
-		password:  os.Getenv("SMTP_PASSWORD"), // пароль приложения (app password)
+		host:     os.Getenv("SMTP_HOST"),     // smtp.gmail.com
+		port:     os.Getenv("SMTP_PORT"),     // 587
+		email:    os.Getenv("SMTP_EMAIL"),    // твой_gmail
+		password: os.Getenv("SMTP_PASSWORD"), // пароль приложения (App Password)
 	}
 }
 
-func (s *SmtpSender) SendOTP(to string, code string) error {
-	// Если настройки пустые - просто логируем и выходим (для локальной разработки без инета)
-	if s.host == "" || s.password == "" {
-		fmt.Printf("[MOCK EMAIL] To: %s, Code: %s\n", to, code)
+func (s *SmtpSender) SendOTP(receiver string, code string) error {
+	if s.email == "" || s.password == "" {
+		fmt.Println("[SMTP] Credentials missing in .env, skipping email sending.")
 		return nil
 	}
 
-	auth := smtp.PlainAuth("", s.fromEmail, s.password, s.host)
-	
-	// Простой формат письма
-	msg := []byte(fmt.Sprintf("To: %s\r\n"+
-		"Subject: Hadaf Verification Code\r\n"+
-		"MIME-Version: 1.0\r\n"+
-		"Content-Type: text/plain; charset=\"utf-8\"\r\n"+
-		"\r\n"+
-		"Ваш код подтверждения для Hadaf: %s\r\n", to, code))
+	auth := smtp.PlainAuth("", s.email, s.password, s.host)
+	addr := s.host + ":" + s.port
 
-	addr := fmt.Sprintf("%s:%s", s.host, s.port)
-	return smtp.SendMail(addr, auth, s.fromEmail, []string{to}, msg)
+	subject := "Subject: Ваш код подтверждения Hadaf\n"
+	mime := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
+	body := fmt.Sprintf(`
+		<html>
+		<body>
+			<h2>Здравствуйте!</h2>
+			<p>Ваш код подтверждения: <b>%s</b></p>
+			<p>Никому не сообщайте этот код.</p>
+		</body>
+		</html>
+	`, code)
+
+	msg := []byte(subject + mime + body)
+
+	if err := smtp.SendMail(addr, auth, s.email, []string{receiver}, msg); err != nil {
+		return fmt.Errorf("smtp send error: %w", err)
+	}
+
+	return nil
 }
