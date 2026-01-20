@@ -100,3 +100,19 @@ type dbNeedHistory struct {
 	IsDeleted bool       `db:"is_deleted"`
 	DeletedAt *time.Time `db:"deleted_at"`
 }
+
+/*
+BOOKINGS
+*/
+type dbBooking struct {
+	ID        int        `db:"id"`
+	UserID    int        `db:"user_id"`
+	NeedID    int        `db:"need_id"`
+	Quantity  float64    `db:"quantity"`
+	Note      string     `db:"note"`
+	Status    string     `db:"status"`
+	CreatedAt time.Time  `db:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at"`
+	IsDeleted bool       `db:"is_deleted"`
+	DeletedAt *time.Time `db:"deleted_at"`
+}

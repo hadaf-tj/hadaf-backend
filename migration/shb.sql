@@ -84,3 +84,22 @@ CREATE TABLE IF NOT EXISTS otp (
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
+
+-- Таблица бронирований (откликов волонтеров на нужды)
+CREATE TABLE IF NOT EXISTS bookings (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    need_id INT NOT NULL REFERENCES needs(id) ON DELETE CASCADE,
+    quantity DECIMAL(10,2) NOT NULL,         -- Количество, которое волонтер готов принести
+    note TEXT,                               -- Сообщение от волонтера
+    status VARCHAR(20) DEFAULT 'pending',    -- 'pending', 'approved', 'rejected'
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMPTZ DEFAULT NULL
+);
+
+-- Индексы для оптимизации запросов
+CREATE INDEX IF NOT EXISTS idx_bookings_need_id ON bookings(need_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);

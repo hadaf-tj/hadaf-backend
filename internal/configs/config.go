@@ -12,6 +12,7 @@ type Config struct {
 	Database DatabaseConfig
 	Logger   LoggerConfig
 	SMS      SMSConfig
+	SMTP     SMTPConfig
 	Server   ServerConfig
 	Service  ServiceConfig
 	Redis    RedisConfig
@@ -50,6 +51,15 @@ type LoggerConfig struct {
 type SMSConfig struct {
 	APIKey     string
 	SenderName string
+}
+
+type SMTPConfig struct {
+	Host      string
+	Port      string
+	Username  string
+	Password  string
+	FromEmail string
+	FromName  string
 }
 
 type ServerConfig struct {
@@ -133,6 +143,14 @@ func InitConfigs() (*Config, error) {
 		SMS: SMSConfig{
 			APIKey:     getEnv("SMS_API_KEY", "mock"),
 			SenderName: getEnv("SMS_SENDER_NAME", "Payvand"),
+		},
+		SMTP: SMTPConfig{
+			Host:      getEnv("SMTP_HOST", "smtp.gmail.com"),
+			Port:      getEnv("SMTP_PORT", "587"),
+			Username:  getEnv("SMTP_USERNAME", ""),
+			Password:  getEnv("SMTP_PASSWORD", ""),
+			FromEmail: getEnv("SMTP_FROM_EMAIL", "noreply@socialhousing.tj"),
+			FromName:  getEnv("SMTP_FROM_NAME", "Social Housing Platform"),
 		},
 		Server: ServerConfig{
 			Name:         "SocialHousingBackend",

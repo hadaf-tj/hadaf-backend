@@ -34,6 +34,12 @@ type IService interface {
 	UpdateNeed(ctx context.Context, n *models.Need) error
 	DeleteNeed(ctx context.Context, id int) error
 	GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error)
+
+	CreateBooking(ctx context.Context, userID, needID int, quantity float64, note string) (int, error)
+	ApproveBooking(ctx context.Context, bookingID, institutionUserID int) error
+	RejectBooking(ctx context.Context, bookingID, institutionUserID int) error
+	GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error)
+	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
 }
 
 type Handler struct {
@@ -98,6 +104,29 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			needs.POST("", h.createNeed)
 			needs.PUT("/:id", h.updateNeed)
 			needs.DELETE("/:id", h.deleteNeed)
+		}
+
+		// Bookings (Protected) - отклики волонтеров
+		bookings := v1.Group("/bookings")
+		bookings.Use(h.AuthMiddleware()) // Any authenticated user
+		{
+			bookings.POST("", h.createBooking)
+			bookings.GET("/my", h.getMyBookings)
+		}
+
+		// Booking management (Protected) - управление откликами
+		bookingMgmt := v1.Group("/bookings")
+		bookingMgmt.Use(h.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
+		{
+			bookingMgmt.POST("/:id/approve", h.approveBooking)
+			bookingMgmt.POST("/:id/reject", h.rejectBooking)
+		}
+
+		// Institution bookings (Protected) - просмотр откликов учреждения
+		institutionBookings := v1.Group("/institutions/:id/bookings")
+		institutionBookings.Use(h.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
+		{
+			institutionBookings.GET("", h.getInstitutionBookings)
 		}
 	}
 	return router

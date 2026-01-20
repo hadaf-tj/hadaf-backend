@@ -6,6 +6,7 @@ import (
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
 	"shb/pkg/db/cache"
+	"shb/pkg/external/email"
 	"shb/pkg/external/fs"
 	"shb/pkg/external/sms"
 	"shb/pkg/tokens"
@@ -42,6 +43,14 @@ type IRepository interface {
 	GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error)
 
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
+
+	// --- Booking Methods ---
+	CreateBooking(ctx context.Context, booking *models.Booking) (int, error)
+	GetBookingByID(ctx context.Context, id int) (*models.Booking, error)
+	GetBookingsByNeed(ctx context.Context, needID int) ([]*models.Booking, error)
+	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
+	UpdateBookingStatus(ctx context.Context, bookingID int, status string) error
+	GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error)
 }
 type Service struct {
 	cfg    *configs.ServiceConfig // CHANGED: from configs.Service to configs.ServiceConfig
@@ -51,10 +60,11 @@ type Service struct {
 	sms    sms.ISmsAdapter
 	token  tokens.ITokenIssuer
 	fs     fs.Storage
+	email  email.IEmailAdapter
 }
 
 func NewService(cfg *configs.ServiceConfig, log *zerolog.Logger, repo IRepository, cache cache.ICache,
-	sms sms.ISmsAdapter, token tokens.ITokenIssuer, fs fs.Storage) *Service {
+	sms sms.ISmsAdapter, token tokens.ITokenIssuer, fs fs.Storage, email email.IEmailAdapter) *Service {
 	return &Service{
 		cfg:    cfg,
 		logger: log,
@@ -62,5 +72,6 @@ func NewService(cfg *configs.ServiceConfig, log *zerolog.Logger, repo IRepositor
 		cache:  cache,
 		sms:    sms,
 		token:  token,
-		fs:     fs}
+		fs:     fs,
+		email:  email}
 }

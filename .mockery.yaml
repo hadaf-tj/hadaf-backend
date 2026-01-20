@@ -24,3 +24,7 @@ packages:
     config:
       all: true
       dir: "pkg/mocks/tokens"
+  shb/pkg/external/email:
+    config:
+      all: true
+      dir: "pkg/mocks/email"

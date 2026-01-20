@@ -116,3 +116,21 @@ func (h *dbNeedHistory) ToDomain() *models.NeedsHistory {
 		DeletedAt: h.DeletedAt,
 	}
 }
+
+func (b *dbBooking) ToDomain() *models.Booking {
+	if b == nil {
+		return nil
+	}
+	return &models.Booking{
+		ID:        b.ID,
+		UserID:    b.UserID,
+		NeedID:    b.NeedID,
+		Quantity:  b.Quantity,
+		Note:      b.Note,
+		Status:    b.Status,
+		CreatedAt: b.CreatedAt,
+		UpdatedAt: b.UpdatedAt,
+		IsDeleted: b.IsDeleted,
+		DeletedAt: b.DeletedAt,
+	}
+}

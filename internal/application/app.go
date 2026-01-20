@@ -8,20 +8,19 @@ import (
 	"shb/internal/configs"
 	"shb/internal/handlers"
 	"shb/internal/repositories"
+	"shb/internal/server"
 	"shb/internal/services"
 	"shb/pkg/db/cache/redisClient"
 	"shb/pkg/db/pgx"
+	"shb/pkg/external/email/smtpEmail"
 	"shb/pkg/external/fs/minioFs"
 	"shb/pkg/external/sms/smsProvider"
 	"shb/pkg/logger"
 	"shb/pkg/middlewares"
 	"shb/pkg/rateLimiter/customLimiter"
-	"shb/pkg/server"
 	"shb/pkg/tokens/jwtToken"
 	"syscall"
 	"time"
-
-	internalConfigs "shb/internal/configs" // Alias internal config
 
 	"github.com/pkg/errors"
 )
@@ -34,14 +33,14 @@ type App struct {
 
 func NewApplication() *App {
 	// 1. Load Internal Config
-	cfg, err := internalConfigs.InitConfigs()
+	cfg, err := configs.InitConfigs()
 	if err != nil {
 		panic("failed to load config: " + err.Error())
 	}
 
 	// 2. Map Internal Config to Pkg Config for Logger
 	// (Assuming pkgConfigs.Logger has a 'Level' field)
-	legacyLoggerCfg := &internalConfigs.LoggerConfig{
+	legacyLoggerCfg := &configs.LoggerConfig{
 		Level: cfg.Logger.Level,
 	}
 	log, err := logger.NewLogger(legacyLoggerCfg)
@@ -73,11 +72,14 @@ func NewApplication() *App {
 	limiter := customLimiter.NewRateLimiter(redis)
 
 	// 3. Map Internal Config to Pkg Config for SMS
-	legacySMSCfg := &internalConfigs.SMSConfig{
+	legacySMSCfg := &configs.SMSConfig{
 		APIKey:     cfg.SMS.APIKey,
 		SenderName: cfg.SMS.SenderName,
 	}
 	sms := smsProvider.NewSMSProvider(legacySMSCfg)
+
+	// 4. Initialize SMTP Email Adapter
+	emailAdapter := smtpEmail.NewSMTPEmail(&cfg.SMTP)
 
 	// token := jwtToken.NewJwtTokenIssuer()
 	token := jwtToken.NewJwtTokenIssuer(
@@ -90,13 +92,13 @@ func NewApplication() *App {
 	repository := repositories.NewRepository(postgresConn, &log.Logger)
 
 	// Service uses Internal Config (ServiceConfig)
-	service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage)
+	service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage, emailAdapter)
 
 	// Handler uses Internal Config
 	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
 
-	// 4. Map Internal Config to Pkg Config for Server
-	legacyServerCfg := &internalConfigs.ServerConfig{
+	// 5. Map Internal Config to Pkg Config for Server
+	legacyServerCfg := &configs.ServerConfig{
 		Name: cfg.Server.Name,
 		Port: cfg.Server.Port,
 	}
