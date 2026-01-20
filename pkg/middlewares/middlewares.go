@@ -73,4 +73,3 @@ func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 		c.Set("role", claims.Role)
 		c.Next()
 	}
-}

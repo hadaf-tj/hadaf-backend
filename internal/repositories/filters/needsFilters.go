@@ -12,7 +12,9 @@ type NeedsFilter struct {
 	RequiredQty float64    `form:"required_qty"`
 	ReceivedQty float64    `form:"received_qty"`
 	Urgency     string     `form:"urgency"`
-	CreatedAt   *time.Time `form:"created_at"`
+	IsDone        *bool      `form:"is_done"`
+	CreatedAtFrom *time.Time `form:"created_at_from" time_format:"2006-01-02"`
+	CreatedAtTo   *time.Time `form:"created_at_to" time_format:"2006-01-02"`
 	IsDeleted   bool       `form:"is_deleted"`
 	OrderBy     string     `form:"order_by"`
 }
@@ -32,6 +34,14 @@ func GetNeedsByInstitution(filter NeedsFilter, instituteId int) (string, []inter
 	filterQuery += fmt.Sprintf(" AND institution_id = $%d", idx)
 	args = append(args, instituteId)
 	idx++
+
+	if filter.IsDone != nil {
+		if *filter.IsDone {
+			filterQuery += " AND received_qty >= required_qty"
+		} else {
+			filterQuery += " AND received_qty < required_qty"
+		}
+	}
 
 	if filter.Name != "" {
 		filterQuery += fmt.Sprintf(" AND name ILIKE $%d", idx)
@@ -69,18 +79,32 @@ func GetNeedsByInstitution(filter NeedsFilter, instituteId int) (string, []inter
 		idx++
 	}
 
-	if filter.CreatedAt != nil {
-		filterQuery += fmt.Sprintf(" AND created_at = $%d", idx)
-		args = append(args, *filter.CreatedAt)
+	if filter.CreatedAtFrom != nil {
+		filterQuery += fmt.Sprintf(" AND created_at >= $%d", idx)
+		args = append(args, *filter.CreatedAtFrom)
+		idx++
+	}
+	if filter.CreatedAtTo != nil {
+		// Добавляем 24 часа, чтобы включить весь конец дня
+		to := filter.CreatedAtTo.Add(24 * time.Hour)
+		filterQuery += fmt.Sprintf(" AND created_at < $%d", idx)
+		args = append(args, to)
 		idx++
 	}
 
+	
+
 	// ORDER BY — ТОЛЬКО whitelist
 	switch filter.OrderBy {
-	case "asc":
+	case "date_asc":
 		filterQuery += " ORDER BY created_at ASC"
-	case "desc":
+	case "urgency":
+		// Простая сортировка по тексту, в идеале urgency должен быть ENUM или INT
+		filterQuery += " ORDER BY urgency DESC, created_at DESC" 
+	default:
+		// По умолчанию: сначала новые
 		filterQuery += " ORDER BY created_at DESC"
 	}
+
 	return filterQuery, args
 }

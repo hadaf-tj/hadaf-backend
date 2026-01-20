@@ -32,6 +32,7 @@ type IService interface {
 	GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
+	
 
 	CreateNeed(ctx context.Context, need *models.Need) (int, error)
 	UpdateNeed(ctx context.Context, n *models.Need) error
@@ -169,4 +170,3 @@ func (h *Handler) CORSMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
-}

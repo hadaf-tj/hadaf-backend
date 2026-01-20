@@ -40,21 +40,39 @@ func (r *Repository) UpdateNeed(ctx context.Context, n *models.Need) error {
 	query := `
 		UPDATE needs 
 		SET name=$1, description=$2, unit=$3, required_qty=$4, received_qty=$5, urgency=$6, updated_at=NOW()
-		WHERE id=$7
+		WHERE id=$7 AND is_deleted = false
 	`
-	_, err := r.postgres.Exec(ctx, query,
+	result, err := r.postgres.Exec(ctx, query,
 		n.Name, n.Description, n.Unit, n.RequiredQty, n.ReceivedQty, n.Urgency, n.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update need: %w", err)
 	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("need not found or deleted")
+	}
 	return nil
 }
 
 func (r *Repository) DeleteNeed(ctx context.Context, id int) error {
-	query := `DELETE FROM needs WHERE id = $1`
-	_, err := r.postgres.Exec(ctx, query, id)
-	return err
+	query := `UPDATE needs SET is_deleted = true, deleted_at = NOW() WHERE id = $1`
+	result, err := r.postgres.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete need: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("need not found")
+	}
+	return nil
+}
+
+func (r *Repository) CreateNeedHistory(ctx context.Context, history *models.NeedsHistory) error {
+	query := `INSERT INTO needs_history (need_id, comment, created_at) VALUES ($1, $2, NOW())`
+	_, err := r.postgres.Exec(ctx, query, history.NeedID, history.Comment)
+	if err != nil {
+		return fmt.Errorf("create history: %w", err)
+	}
+	return nil
 }
 
 func (r *Repository) GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error) {
@@ -62,10 +80,11 @@ func (r *Repository) GetNeedsByInstitution(ctx context.Context, filter filters.N
 		SELECT id, institution_id, name, description, unit, required_qty, received_qty, urgency, created_at
 		FROM needs
 	`
-
 	filterQuery, args := filters.GetNeedsByInstitution(filter, institutionID)
-
 	query += filterQuery
+
+	// Логируем запрос для отладки
+	r.logger.Info().Str("query", query).Interface("args", args).Msg("Fetching needs DB")
 
 	rows, err := r.postgres.Query(ctx, query, args...)
 	if err != nil {
@@ -73,7 +92,10 @@ func (r *Repository) GetNeedsByInstitution(ctx context.Context, filter filters.N
 	}
 	defer rows.Close()
 
-	var needs []*models.Need
+	// ВАЖНО: Инициализируем как пустой слайс, а не nil. 
+	// Тогда в JSON это будет [], а не null.
+	needs := make([]*models.Need, 0)
+
 	for rows.Next() {
 		var n models.Need
 		if err := rows.Scan(
@@ -83,5 +105,7 @@ func (r *Repository) GetNeedsByInstitution(ctx context.Context, filter filters.N
 		}
 		needs = append(needs, &n)
 	}
+	
+	r.logger.Info().Int("count", len(needs)).Msg("Fetched needs count")
 	return needs, nil
 }
