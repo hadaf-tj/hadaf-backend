@@ -7,10 +7,12 @@ import (
 	"shb/internal/configs"
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
+	"shb/pkg/constants"
 	"shb/pkg/middlewares"
 	"shb/pkg/myerrors"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -24,11 +26,13 @@ type IService interface {
 	SendOTP(ctx context.Context, receiver string) (int, error)
 	ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
 	Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
-	Register(ctx context.Context, phone, password, fullName string, institutionID int) (*models.TokenResponse, error)
+	Register(ctx context.Context, email, phone, password, fullName, role string, institutionID *int) (*models.TokenResponse, error)
+	GetUserByID(ctx context.Context, id int) (*models.User, error)
 
-	GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error)
+	GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
+	
 
 	CreateNeed(ctx context.Context, need *models.Need) (int, error)
 	UpdateNeed(ctx context.Context, n *models.Need) error
@@ -56,44 +60,37 @@ func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middl
 
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
-	// Middleware: CORS, Recovery, RequestID
 	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
 	router.NoRoute(h.noRoute)
 
-	// Health check
 	router.GET("/ping", h.ping)
 
 	v1 := router.Group("/api/v1")
 	{
-		// Swagger docs
 		v1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
 			ginSwagger.URL("/api/v1/docs/swagger.yaml"),
 		))
 		v1.Static("/docs", "./docs")
 
-		// Auth
 		v1.POST("/send_otp", h.sendOTP)
 		v1.POST("/confirm_otp", h.confirmOTP)
 		v1.POST("/login", h.login)
 		v1.POST("/register", h.register)
 
-		v1.GET("/check_access", h.middleware.AccessToken())
-		v1.GET("/check_refresh", h.middleware.RefreshToken())
+		// Исправленный вызов middleware
+		v1.GET("/check_access", h.middleware.AuthMiddleware(), func(c *gin.Context) {
+			h.success(c, "valid")
+		})
+		v1.GET("/me", h.middleware.AuthMiddleware(), h.getMe)
 
-		// Institutions (Public)
 		v1.GET("/institutions", h.getAllInstitutions)
-		// ВОТ ЭТА СТРОКА НУЖНА ДЛЯ ДЕТАЛЬНОЙ СТРАНИЦЫ:
 		v1.GET("/institutions/:id", h.getInstitutionByID)
-
 		v1.POST("/institutions", h.createInstitution)
 
-		// Needs (Public) - просмотр нужд конкретного учреждения
 		v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
-		// Или можно использовать /needs/institution/:id, главное чтобы совпадало с lib/api.ts
 
-		// Needs (Protected) - управление нуждами
 		needs := v1.Group("/needs")
-		needs.Use(h.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
+		needs.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
 		{
 			needs.POST("", h.createNeed)
 			needs.PUT("/:id", h.updateNeed)
@@ -144,4 +141,33 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 		c.JSON(http.StatusInternalServerError, myerrors.InternalError())
 	}
 	c.Abort()
+}
+
+func (h *Handler) RequestID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestID := c.Request.Header.Get(constants.RequestIDHeader)
+		if requestID == "" {
+			requestID = uuid.New().String()
+		}
+		ctx := c.Request.Context()
+		ctx = context.WithValue(ctx, constants.RequestIDKey, requestID)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
+func (h *Handler) CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, x-request-id")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }
