@@ -2,13 +2,12 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"shb/internal/configs"
 	"shb/internal/models"
-	"shb/internal/repositories/filters"
+	mockSvc "shb/pkg/mocks/services"
 	"shb/pkg/myerrors"
 	"testing"
 
@@ -18,115 +17,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockService struct {
-	mock.Mock
-}
-
-func (m *MockService) SendOTP(ctx context.Context, receiver string) (int, error) {
-	args := m.Called(ctx, receiver)
-	return args.Get(0).(int), args.Error(1)
-}
-
-func (m *MockService) ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error) {
-	args := m.Called(ctx, phone, otp)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.TokenResponse), args.Error(1)
-}
-
-func (m *MockService) Login(ctx context.Context, phone, password string) (*models.TokenResponse, error) {
-	args := m.Called(ctx, phone, password)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.TokenResponse), args.Error(1)
-}
-
-func (m *MockService) Register(ctx context.Context, phone, password, fullName string, institutionID int) (*models.TokenResponse, error) {
-	args := m.Called(ctx, phone, password, fullName, institutionID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.TokenResponse), args.Error(1)
-}
-
-func (m *MockService) GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error) {
-	args := m.Called(ctx, filter)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*models.Institution), args.Error(1)
-}
-
-func (m *MockService) CreateInstitution(ctx context.Context, i *models.Institution) (int, error) {
-	args := m.Called(ctx, i)
-	return args.Get(0).(int), args.Error(1)
-}
-
-func (m *MockService) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.Institution), args.Error(1)
-}
-
-func (m *MockService) CreateNeed(ctx context.Context, need *models.Need) (int, error) {
-	args := m.Called(ctx, need)
-	return args.Get(0).(int), args.Error(1)
-}
-
-func (m *MockService) UpdateNeed(ctx context.Context, n *models.Need) error {
-	args := m.Called(ctx, n)
-	return args.Error(0)
-}
-
-func (m *MockService) DeleteNeed(ctx context.Context, id int) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func (m *MockService) GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error) {
-	args := m.Called(ctx, filter, institutionID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*models.Need), args.Error(1)
-}
-
-func (m *MockService) CreateBooking(ctx context.Context, userID, needID int, quantity float64, note string) (int, error) {
-	args := m.Called(ctx, userID, needID, quantity, note)
-	return args.Get(0).(int), args.Error(1)
-}
-
-func (m *MockService) ApproveBooking(ctx context.Context, bookingID, institutionUserID int) error {
-	args := m.Called(ctx, bookingID, institutionUserID)
-	return args.Error(0)
-}
-
-func (m *MockService) RejectBooking(ctx context.Context, bookingID, institutionUserID int) error {
-	args := m.Called(ctx, bookingID, institutionUserID)
-	return args.Error(0)
-}
-
-func (m *MockService) GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error) {
-	args := m.Called(ctx, institutionID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*models.Booking), args.Error(1)
-}
-
-func (m *MockService) GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error) {
-	args := m.Called(ctx, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*models.Booking), args.Error(1)
-}
-
-func setupTestHandler(service IService) *Handler {
+func setupTestHandler(service *mockSvc.MockIService) *Handler {
 	logger := zerolog.Nop()
 	cfg := &configs.Config{}
 	return NewHandler(service, nil, nil, &logger, cfg)
@@ -139,7 +30,7 @@ func TestHandler_createBooking(t *testing.T) {
 		name           string
 		userID         interface{}
 		body           interface{}
-		setupMocks     func(*MockService)
+		setupMocks     func(*mockSvc.MockIService)
 		expectedStatus int
 		expectedError  bool
 	}{
@@ -151,7 +42,7 @@ func TestHandler_createBooking(t *testing.T) {
 				"quantity": 10.5,
 				"note":     "I can help",
 			},
-			setupMocks: func(service *MockService) {
+			setupMocks: func(service *mockSvc.MockIService) {
 				service.On("CreateBooking", mock.Anything, 1, 1, 10.5, "I can help").Return(1, nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -163,7 +54,7 @@ func TestHandler_createBooking(t *testing.T) {
 				"need_id":  1,
 				"quantity": 10.5,
 			},
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
@@ -173,7 +64,7 @@ func TestHandler_createBooking(t *testing.T) {
 				"need_id":  1,
 				"quantity": 10.5,
 			},
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
@@ -182,7 +73,7 @@ func TestHandler_createBooking(t *testing.T) {
 			body: map[string]interface{}{
 				"quantity": 10.5,
 			},
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -192,7 +83,7 @@ func TestHandler_createBooking(t *testing.T) {
 				"need_id":  1,
 				"quantity": -5.0,
 			},
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -202,7 +93,7 @@ func TestHandler_createBooking(t *testing.T) {
 				"need_id":  1,
 				"quantity": 10.5,
 			},
-			setupMocks: func(service *MockService) {
+			setupMocks: func(service *mockSvc.MockIService) {
 				service.On("CreateBooking", mock.Anything, 1, 1, 10.5, "").Return(0, myerrors.NewBadRequestErr("need not found"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -211,7 +102,7 @@ func TestHandler_createBooking(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := new(MockService)
+			service := new(mockSvc.MockIService)
 			tt.setupMocks(service)
 
 			handler := setupTestHandler(service)
@@ -243,14 +134,14 @@ func TestHandler_approveBooking(t *testing.T) {
 		name           string
 		userID         interface{}
 		bookingID      string
-		setupMocks     func(*MockService)
+		setupMocks     func(*mockSvc.MockIService)
 		expectedStatus int
 	}{
 		{
 			name:      "successful approval",
 			userID:    5,
 			bookingID: "1",
-			setupMocks: func(service *MockService) {
+			setupMocks: func(service *mockSvc.MockIService) {
 				service.On("ApproveBooking", mock.Anything, 1, 5).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -259,21 +150,21 @@ func TestHandler_approveBooking(t *testing.T) {
 			name:           "user not authenticated",
 			userID:         nil,
 			bookingID:      "1",
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "invalid booking ID",
 			userID:         5,
 			bookingID:      "invalid",
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:      "service error",
 			userID:    5,
 			bookingID: "1",
-			setupMocks: func(service *MockService) {
+			setupMocks: func(service *mockSvc.MockIService) {
 				service.On("ApproveBooking", mock.Anything, 1, 5).Return(myerrors.NewForbiddenErr("access denied"))
 			},
 			expectedStatus: http.StatusForbidden,
@@ -282,7 +173,7 @@ func TestHandler_approveBooking(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := new(MockService)
+			service := new(mockSvc.MockIService)
 			tt.setupMocks(service)
 
 			handler := setupTestHandler(service)
@@ -312,14 +203,14 @@ func TestHandler_rejectBooking(t *testing.T) {
 		name           string
 		userID         interface{}
 		bookingID      string
-		setupMocks     func(*MockService)
+		setupMocks     func(*mockSvc.MockIService)
 		expectedStatus int
 	}{
 		{
 			name:      "successful rejection",
 			userID:    5,
 			bookingID: "1",
-			setupMocks: func(service *MockService) {
+			setupMocks: func(service *mockSvc.MockIService) {
 				service.On("RejectBooking", mock.Anything, 1, 5).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -328,21 +219,21 @@ func TestHandler_rejectBooking(t *testing.T) {
 			name:           "user not authenticated",
 			userID:         nil,
 			bookingID:      "1",
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "invalid booking ID",
 			userID:         5,
 			bookingID:      "invalid",
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := new(MockService)
+			service := new(mockSvc.MockIService)
 			tt.setupMocks(service)
 
 			handler := setupTestHandler(service)
@@ -371,14 +262,14 @@ func TestHandler_getInstitutionBookings(t *testing.T) {
 	tests := []struct {
 		name           string
 		institutionID  string
-		setupMocks     func(*MockService)
+		setupMocks     func(*mockSvc.MockIService)
 		expectedStatus int
 		expectedCount  int
 	}{
 		{
 			name:          "successful retrieval",
 			institutionID: "1",
-			setupMocks: func(service *MockService) {
+			setupMocks: func(service *mockSvc.MockIService) {
 				bookings := []*models.Booking{
 					{ID: 1, UserID: 1, NeedID: 1, Status: models.BookingStatusPending},
 					{ID: 2, UserID: 2, NeedID: 1, Status: models.BookingStatusApproved},
@@ -391,13 +282,13 @@ func TestHandler_getInstitutionBookings(t *testing.T) {
 		{
 			name:           "invalid institution ID",
 			institutionID:  "invalid",
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:          "empty list",
 			institutionID: "1",
-			setupMocks: func(service *MockService) {
+			setupMocks: func(service *mockSvc.MockIService) {
 				service.On("GetBookingsByInstitution", mock.Anything, 1).Return([]*models.Booking{}, nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -407,7 +298,7 @@ func TestHandler_getInstitutionBookings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := new(MockService)
+			service := new(mockSvc.MockIService)
 			tt.setupMocks(service)
 
 			handler := setupTestHandler(service)
@@ -439,14 +330,14 @@ func TestHandler_getMyBookings(t *testing.T) {
 	tests := []struct {
 		name           string
 		userID         interface{}
-		setupMocks     func(*MockService)
+		setupMocks     func(*mockSvc.MockIService)
 		expectedStatus int
 		expectedCount  int
 	}{
 		{
 			name:   "successful retrieval",
 			userID: 1,
-			setupMocks: func(service *MockService) {
+			setupMocks: func(service *mockSvc.MockIService) {
 				bookings := []*models.Booking{
 					{ID: 1, UserID: 1, NeedID: 1, Status: models.BookingStatusPending},
 					{ID: 2, UserID: 1, NeedID: 2, Status: models.BookingStatusApproved},
@@ -459,19 +350,19 @@ func TestHandler_getMyBookings(t *testing.T) {
 		{
 			name:           "user not authenticated",
 			userID:         nil,
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "invalid user ID type",
 			userID:         "not-an-int",
-			setupMocks:     func(service *MockService) {},
+			setupMocks:     func(service *mockSvc.MockIService) {},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:   "empty list",
 			userID: 1,
-			setupMocks: func(service *MockService) {
+			setupMocks: func(service *mockSvc.MockIService) {
 				service.On("GetBookingsByUser", mock.Anything, 1).Return([]*models.Booking{}, nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -481,7 +372,7 @@ func TestHandler_getMyBookings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := new(MockService)
+			service := new(mockSvc.MockIService)
 			tt.setupMocks(service)
 
 			handler := setupTestHandler(service)

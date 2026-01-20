@@ -8,6 +8,10 @@ packages:
     config:
       all: true
       dir: "pkg/mocks/repository"
+  shb/internal/handlers:
+    config:
+      all: true
+      dir: "pkg/mocks/services"
   shb/pkg/db/cache:
     config:
       all: true
