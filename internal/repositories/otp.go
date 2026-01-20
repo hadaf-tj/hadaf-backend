@@ -47,7 +47,7 @@ func (r *Repository) GetOTP(ctx context.Context, receiver string) (*models.OTP, 
     LIMIT 1;
 `
 	var otpDB dbOtp
-	
+
 	// Берем текущее время в UTC, чтобы сравнивать корректно
 	currentTime := time.Now().UTC()
 
@@ -75,7 +75,7 @@ func (r *Repository) GetOTP(ctx context.Context, receiver string) (*models.OTP, 
 
 func (r *Repository) MarkOTPAsVerified(ctx context.Context, otpID int) error {
 	const query = `UPDATE otp SET is_verified=true, updated_at=NOW() WHERE id=$1`
-	
+
 	result, err := r.postgres.Exec(ctx, query, otpID)
 	if err != nil {
 		return fmt.Errorf("failed to mark otp as verified: %w", err)

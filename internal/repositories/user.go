@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"shb/internal/models"
 	"shb/pkg/myerrors"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // GetUserByPhone ищет пользователя по телефону
@@ -86,7 +89,7 @@ func (r *Repository) CreateUser(ctx context.Context, u *models.User) error {
 	`
 	// Если пароль пустой, ставим заглушку (для phone login flow), но для регистрации он будет заполнен
 	password := u.Password
-	
+
 	err := r.postgres.QueryRow(ctx, query,
 		u.InstitutionID, u.FullName, u.Phone, u.Email, password, u.Role, u.IsActive,
 	).Scan(&u.ID, &u.CreatedAt, &u.UpdatedAt)
@@ -100,4 +103,46 @@ func (r *Repository) ActivateUser(ctx context.Context, id int) error {
 	query := `UPDATE users SET is_active = true, updated_at = NOW() WHERE id = $1`
 	_, err := r.postgres.Exec(ctx, query, id)
 	return err
+}
+
+func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	// 1. Нормализуем email (ОБЯЗАТЕЛЬНО)
+	email = strings.ToLower(strings.TrimSpace(email))
+
+	const query = `
+		SELECT
+			id,
+			institution_id,
+			full_name,
+			phone,
+			email,
+			password,
+			role,
+			is_active,
+			created_at
+		FROM users
+		WHERE email = $1
+	`
+
+	var u dbUser
+	err := r.postgres.QueryRow(ctx, query, email).Scan(
+		&u.ID,
+		&u.InstitutionID,
+		&u.FullName,
+		&u.Phone,
+		&u.Email,
+		&u.Password,
+		&u.Role,
+		&u.IsActive,
+		&u.CreatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, myerrors.ErrNotFound
+		}
+		return nil, fmt.Errorf("get user by email: %w", err)
+	}
+
+	return u.ToDomain(), nil
 }
