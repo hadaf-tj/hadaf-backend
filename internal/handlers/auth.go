@@ -79,12 +79,12 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 	}
 
 	in.Receiver = strings.ToLower(strings.TrimSpace(in.Receiver))
-    in.OTP = strings.TrimSpace(in.OTP)
+	in.OTP = strings.TrimSpace(in.OTP)
 	if !strings.Contains(in.Receiver, "@") && !utils.IsValidPhoneNumberByCountry(ctx, in.Receiver) {
-        logger.Warn().Str("receiver", in.Receiver).Msg("invalid receiver")
-        h.handleError(c, myerrors.NewBadRequestErr("invalid receiver format"))
-        return
-    }
+		logger.Warn().Str("receiver", in.Receiver).Msg("invalid receiver")
+		h.handleError(c, myerrors.NewBadRequestErr("invalid receiver format"))
+		return
+	}
 
 	key := fmt.Sprintf("user:%s:verify_otp", in.Receiver)
 	ok, err := h.limiter.Allow(ctx, key, h.cfg.Service.Security.OTPMaxAttempts,
@@ -118,18 +118,18 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 
 func (h *Handler) register(c *gin.Context) {
 	ctx := c.Request.Context()
-	
+
 	// Структура запроса
 	in := struct {
-		Email         string `json:"email" binding:"required,email"` // Email обязателен
-		Phone         string `json:"phone"`                          // Телефон опционален
-		Password      string `json:"password" binding:"required"`
-		FullName      string `json:"full_name" binding:"required"`
+		Email    string `json:"email" binding:"required,email"` // Email обязателен
+		Phone    string `json:"phone"`                          // Телефон опционален
+		Password string `json:"password" binding:"required"`
+		FullName string `json:"full_name" binding:"required"`
 		// Используем указатель *int, чтобы можно было передать null (для волонтеров)
-		InstitutionID *int   `json:"institution_id"`                 
-		Role          string `json:"role" binding:"required"`        // 'volunteer' или 'institution'
+		InstitutionID *int   `json:"institution_id"`
+		Role          string `json:"role" binding:"required"` // 'volunteer' или 'institution'
 	}{}
-	
+
 	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
 	if err := c.ShouldBindJSON(&in); err != nil {
 		h.logger.Warn().Err(err).Msg("invalid register input")
@@ -139,15 +139,15 @@ func (h *Handler) register(c *gin.Context) {
 
 	// Вызываем сервис
 	_, err := h.service.Register(ctx, in.Email, in.Phone, in.Password, in.FullName, in.Role, in.InstitutionID)
-    if err != nil {
-        h.handleError(c, err)
-        return
-    }
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
 
 	h.success(c, gin.H{
-        "message": "verification_required",
-        "email":   in.Email,
-    })
+		"message": "verification_required",
+		"email":   in.Email,
+	})
 }
 
 func (h *Handler) login(c *gin.Context) {

@@ -20,7 +20,6 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 	}
 
 	expiresAt := time.Now().UTC().Add(s.cfg.Security.OTPDuration)
-	
 	// ЛОГИКА ВЫБОРА КАНАЛА
 	method := "sms"
 	if strings.Contains(receiver, "@") {
@@ -104,14 +103,22 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 
 	// 4. Выдаем токены
 	access, refresh, err := s.token.IssueTokens(ctx, user.ID)
-    if err != nil {
-        return nil, fmt.Errorf("issue tokens err: %w", err)
-    }
-	return &models.TokenResponse{
-        AccessToken:  access,
-        RefreshToken: refresh,
-    }, nil
+	}
+
+	// 2. Ищем пользователя (по email или телефону)
+	var user *models.User
+	if strings.Contains(receiver, "@") {
+		user, err = s.repo.GetUserByEmail(ctx, receiver)
+	} else {
+		user, err = s.repo.GetUserByPhone(ctx, receiver)
+	}
+	if err != nil {
+		// Если пользователя нет — значит это просто проверка телефона/почты (например, для восстановления)
+		// Но в нашем флоу регистрации пользователь уже создан (inactive).
+		return nil, myerrors.NewBadRequestErr("Пользователь не найден")
+	}
 }
+
 // ... методы Login, Register, ensureUserExists (оставляем старые) ...
 func (s *Service) ensureUserExists(ctx context.Context, phone string) (*models.User, error) {
     user, err := s.repo.GetUserByPhone(ctx, phone)
@@ -159,7 +166,7 @@ func (s *Service) Register(ctx context.Context, email, phone, password, fullName
 
 	// 2. Создаем пользователя НЕАКТИВНЫМ
 	newUser := &models.User{
-		// ... поля ...
+		Email:    &email,
 		IsActive: false, // <--- ВАЖНО
 	}
 
@@ -170,7 +177,7 @@ func (s *Service) Register(ctx context.Context, email, phone, password, fullName
 	// 3. ОТПРАВЛЯЕМ КОД ПОДТВЕРЖДЕНИЯ
 	// Используем email как receiver
 	if _, err := s.SendOTP(ctx, email); err != nil {
-		// Если не ушло — логируем, но юзера создали. 
+		// Если не ушло — логируем, но юзера создали.
 		// (В идеале нужен роут "выслать код повторно")
 		s.logger.Error().Err(err).Msg("failed to send otp after register")
 	}
@@ -178,6 +185,7 @@ func (s *Service) Register(ctx context.Context, email, phone, password, fullName
 	// 4. Возвращаем nil, так как токенов еще нет
 	return nil, nil
 }
+
 func (s *Service) GetUserByID(ctx context.Context, id int) (*models.User, error) {
     return s.repo.GetUserByID(ctx, id)
 }

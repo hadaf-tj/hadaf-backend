@@ -170,4 +170,3 @@ func (h *Handler) CORSMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
-}
