@@ -21,7 +21,7 @@ RUN mkdir -p /app/logs
 COPY --from=builder /app/main .
 
 # Копируем конфиги
-COPY --from=builder /app/pkg/configs ./configs
+COPY --from=builder /app/internal/configs ./configs
 
 # Копируем docs
 COPY --from=builder /app/docs ./docs
