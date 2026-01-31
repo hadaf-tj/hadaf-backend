@@ -40,6 +40,13 @@ type IService interface {
 	RejectBooking(ctx context.Context, bookingID, institutionUserID int) error
 	GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error)
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
+
+	// --- Event Methods ---
+	CreateEvent(ctx context.Context, e *models.Event) (int, error)
+	GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error)
+	GetEventByID(ctx context.Context, id int) (*models.Event, error)
+	JoinEvent(ctx context.Context, eventID, userID int) error
+	LeaveEvent(ctx context.Context, eventID, userID int) error
 }
 
 type Handler struct {
@@ -128,6 +135,12 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		{
 			institutionBookings.GET("", h.getInstitutionBookings)
 		}
+
+		// Events routes - волонтёрские события
+		v1.GET("/events", h.middleware.OptionalAccessToken(), h.getAllEvents)
+		v1.POST("/events", h.AuthMiddleware(), h.createEvent)
+		v1.POST("/events/:id/join", h.AuthMiddleware(), h.joinEvent)
+		v1.DELETE("/events/:id/leave", h.AuthMiddleware(), h.leaveEvent)
 	}
 	return router
 }

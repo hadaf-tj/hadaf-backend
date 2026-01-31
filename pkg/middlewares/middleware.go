@@ -104,3 +104,31 @@ func (m *Middleware) CORSMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// OptionalAccessToken - мягкая авторизация (не требует токена, но извлекает userID если есть)
+func (m *Middleware) OptionalAccessToken() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tokenStr := m.extractTokenFromHeader(c)
+		if tokenStr == "" {
+			c.Set("user_id", 0)
+			c.Next()
+			return
+		}
+
+		claims := &models.CustomClaims{}
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+			return []byte(m.accessSecret), nil
+		})
+
+		if err != nil || !token.Valid || claims.Subject != constants.AccessSubject {
+			c.Set("user_id", 0)
+			c.Next()
+			return
+		}
+
+		c.Set("user_id", claims.UserID)
+		c.Set("claims", claims)
+		c.Next()
+	}
+}
+

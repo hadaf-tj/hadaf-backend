@@ -103,3 +103,30 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE INDEX IF NOT EXISTS idx_bookings_need_id ON bookings(need_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+
+-- Таблица волонтёрских событий
+CREATE TABLE IF NOT EXISTS events (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    event_date TIMESTAMPTZ NOT NULL,        -- Дата и время события
+    institution_id INT NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
+    creator_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMPTZ DEFAULT NULL
+);
+
+-- Таблица участников событий (M2M)
+CREATE TABLE IF NOT EXISTS event_participants (
+    event_id INT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (event_id, user_id)         -- Уникальная пара, нельзя записаться дважды
+);
+
+-- Индексы для событий
+CREATE INDEX IF NOT EXISTS idx_events_event_date ON events(event_date);
+CREATE INDEX IF NOT EXISTS idx_events_institution_id ON events(institution_id);
+CREATE INDEX IF NOT EXISTS idx_events_creator_id ON events(creator_id);

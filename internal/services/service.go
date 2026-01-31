@@ -51,6 +51,13 @@ type IRepository interface {
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
 	UpdateBookingStatus(ctx context.Context, bookingID int, status string) error
 	GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error)
+
+	// --- Event Methods ---
+	CreateEvent(ctx context.Context, e *models.Event) (int, error)
+	GetEventByID(ctx context.Context, id int) (*models.Event, error)
+	GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error)
+	JoinEvent(ctx context.Context, eventID, userID int) error
+	LeaveEvent(ctx context.Context, eventID, userID int) error
 }
 type Service struct {
 	cfg    *configs.ServiceConfig // CHANGED: from configs.Service to configs.ServiceConfig
