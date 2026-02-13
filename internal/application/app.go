@@ -37,13 +37,11 @@ func NewApplication() *App {
 	if err != nil {
 		panic("failed to load config: " + err.Error())
 	}
-
 	// 2. Map Internal Config to Pkg Config for Logger
 	// (Assuming pkgConfigs.Logger has a 'Level' field)
-	legacyLoggerCfg := &configs.LoggerConfig{
+	log, err := logger.NewLogger(logger.Config{
 		Level: cfg.Logger.Level,
-	}
-	log, err := logger.NewLogger(legacyLoggerCfg)
+	})
 	if err != nil {
 		panic("failed to initialize logger: " + err.Error())
 	}
@@ -71,38 +69,41 @@ func NewApplication() *App {
 
 	limiter := customLimiter.NewRateLimiter(redis)
 
-	// 3. Map Internal Config to Pkg Config for SMS
-	legacySMSCfg := &configs.SMSConfig{
+	// 3. SMS (Мапим конфиг)
+	sms := smsProvider.NewSMSProvider(smsProvider.SMSConfig{
 		APIKey:     cfg.SMS.APIKey,
 		SenderName: cfg.SMS.SenderName,
-	}
-	sms := smsProvider.NewSMSProvider(legacySMSCfg)
+	})
 
 	// 4. Initialize SMTP Email Adapter
 	emailAdapter := smtpEmail.NewSMTPEmail(&cfg.SMTP)
 
-	// token := jwtToken.NewJwtTokenIssuer()
 	token := jwtToken.NewJwtTokenIssuer(
 		cfg.Security.JWTSecretKey,
 		cfg.Security.AccessTokenTTL,
 		cfg.Security.RefreshTokenTTL,
 	)
-	middleware := middlewares.NewMiddleware()
+
+	// 4. Middleware (Передаем секрет)
+	middleware := middlewares.NewMiddleware(cfg.Security.JWTSecretKey)
 
 	repository := repositories.NewRepository(postgresConn, &log.Logger)
 
 	// Service uses Internal Config (ServiceConfig)
+	// We pass emailAdapter here as it was required by Service constructor
 	service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage, emailAdapter)
 
-	// Handler uses Internal Config
 	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
 
-	// 5. Map Internal Config to Pkg Config for Server
-	legacyServerCfg := &configs.ServerConfig{
-		Name: cfg.Server.Name,
-		Port: cfg.Server.Port,
-	}
-	srv := server.NewServer(legacyServerCfg, handler)
+	// 5. Server (Мапим конфиг)
+	readTimeout, _ := time.ParseDuration(cfg.Server.ReadTimeout)
+	writeTimeout, _ := time.ParseDuration(cfg.Server.WriteTimeout)
+
+	srv := server.NewServer(server.Config{
+		Port:         cfg.Server.Port,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+	}, handler.InitRoutes()) // Внимание: NewServer в pkg/server теперь принимает handler http.Handler
 
 	return &App{
 		config: cfg,
@@ -116,9 +117,9 @@ func (a *App) Start() {
 	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		a.logger.Info().Msgf("%s is started", a.config.Server.Name)
+		a.logger.Info().Msgf("%s is started on port %s", a.config.Server.Name, a.config.Server.Port)
 		if err := a.server.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			a.logger.Fatal().Msgf("Could not listen on %s: %v", a.config.Server.Port, err)
+			a.logger.Fatal().Msgf("Could not listen: %v", err)
 		}
 	}()
 

@@ -61,7 +61,12 @@ func (h *Handler) getNeedsByInstitution(c *gin.Context) {
 	}
 
 	idStr := c.Param("id") // ID учреждения
-	id, _ := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(idStr)
+
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid institution id"))
+		return
+	}
 
 	needs, err := h.service.GetNeedsByInstitution(ctx, filter, id)
 	if err != nil {

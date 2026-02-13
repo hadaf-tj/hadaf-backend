@@ -1,0 +1,1277 @@
+diff --git a/.env_example b/.env_example
+index 48f6474..c03996b 100644
+--- a/.env_example
++++ b/.env_example
+@@ -2,14 +2,12 @@
+ POSTGRES_USER=postgres
+ POSTGRES_PASSWORD=postgres
+ POSTGRES_DB=shb
+-POSTGRES_HOST=localhost
++POSTGRES_HOST=postgres
+ POSTGRES_PORT=5432
+ 
+ # Redis
+-REDIS_HOST=localhost
++REDIS_HOST=redis
+ REDIS_PORT=6379
+-REDIS_DEFAULT_DB=0
+-REDIS_TIMEOUT=5
+ 
+ # MinIO (Object Storage)
+ MINIO_ENDPOINT=minio:9000
+@@ -18,18 +16,9 @@ MINIO_SECRET_KEY=minioadmin
+ MINIO_BUCKET=shb-files
+ 
+ # App Service
+-APP_NAME=my-app
+ APP_PORT=8000
+-APP_HOST=localhost
+ APP_ENV=local
+-APP_WRITE_TIMEOUT=30s
+-APP_READ_TIMEOUT=30s
+-
+-# Logging
+ LOG_LEVEL=debug
+-LOG_PATH=""
+-LOG_INCLUDE_CALLER=true
+-
+ 
+ # SMS Service (Mock settings for now)
+ SMS_API_KEY=mock_key
+@@ -38,16 +27,8 @@ SMS_SENDER_NAME=Payvand
+ # Security (JWT) - сгенерируйте случайную строку для продакшена, для дева пойдет эта
+ JWT_SECRET_KEY=super_secret_jwt_key_for_dev_only_change_in_prod
+ ACCESS_TOKEN_TTL=15m
+-ACCESS_TOKEN_SECRET=access_secret_jwt_key_for_dev_only_change_in_prod
+ REFRESH_TOKEN_TTL=720h
+-REFRESH_TOKEN_SECRET=refresh_secret_jwt_key_for_dev_only_change_in_prod
+ 
+ # OTP Settings
+ OTP_LENGTH=4
+-OTP_TTL=5m
+-OTP_SEND_ATTEMPTS=3
+-OTP_SEND_BLOCK_TIME=300
+-OTP_LENGTH=6
+-OTP_MAX_ATTEMPTS=3
+-OTP_MAX_LOGIN_ATTEMPTS=5
+-OTP_DURATION=5m
+\ No newline at end of file
++OTP_TTL=5m
+\ No newline at end of file
+diff --git a/internal/application/app.go b/internal/application/app.go
+index daa5f3e..6e2a24c 100644
+--- a/internal/application/app.go
++++ b/internal/application/app.go
+@@ -22,6 +22,7 @@ import (
+ 	"time"
+ 
+ 	internalConfigs "shb/internal/configs" // Alias internal config
++	pkgConfigs "shb/pkg/configs"           // Import pkg config (Legacy)
+ 
+ 	"github.com/pkg/errors"
+ )
+@@ -31,82 +32,81 @@ type App struct {
+ 	logger *logger.Logger
+ 	server *server.Server
+ }
+-
+ func NewApplication() *App {
+-	// 1. Load Internal Config
+-	cfg, err := internalConfigs.InitConfigs()
+-	if err != nil {
+-		panic("failed to load config: " + err.Error())
+-	}
+-
+-	// 2. Map Internal Config to Pkg Config for Logger
+-	// (Assuming pkgConfigs.Logger has a 'Level' field)
+-	legacyLoggerCfg := &internalConfigs.LoggerConfig{
+-		Level: cfg.Logger.Level,
+-	}
+-	log, err := logger.NewLogger(legacyLoggerCfg)
+-	if err != nil {
+-		panic("failed to initialize logger: " + err.Error())
+-	}
+-
+-	postgresConn, err := pgx.NewPgxPool()
+-	if err != nil {
+-		panic("failed to connect to postgres: " + err.Error())
+-	}
+-
+-	redis, err := redisClient.NewRedisClient()
+-	if err != nil {
+-		panic("failed to connect to redis: " + err.Error())
+-	}
+-
+-	fileStorage, err := minioFs.NewMinIOStorage(minioFs.MinIOConfig{
+-		Bucket:    cfg.Minio.Bucket,
+-		Endpoint:  cfg.Minio.Endpoint,
+-		AccessKey: cfg.Minio.AccessKey,
+-		SecretKey: cfg.Minio.SecretKey,
+-		Logger:    &log.Logger,
+-	})
+-	if err != nil {
+-		panic("failed to initialize minio storage: " + err.Error())
+-	}
+-
+-	limiter := customLimiter.NewRateLimiter(redis)
+-
+-	// 3. Map Internal Config to Pkg Config for SMS
+-	legacySMSCfg := &internalConfigs.SMSConfig{
+-		APIKey:     cfg.SMS.APIKey,
+-		SenderName: cfg.SMS.SenderName,
+-	}
+-	sms := smsProvider.NewSMSProvider(legacySMSCfg)
+-
+-	// token := jwtToken.NewJwtTokenIssuer()
+-	token := jwtToken.NewJwtTokenIssuer(
+-		cfg.Security.JWTSecretKey,
+-		cfg.Security.AccessTokenTTL,
+-		cfg.Security.RefreshTokenTTL,
+-	)
+-	middleware := middlewares.NewMiddleware()
+-
+-	repository := repositories.NewRepository(postgresConn, &log.Logger)
+-
+-	// Service uses Internal Config (ServiceConfig)
+-	service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage)
+-
+-	// Handler uses Internal Config
+-	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
+-
+-	// 4. Map Internal Config to Pkg Config for Server
+-	legacyServerCfg := &internalConfigs.ServerConfig{
+-		Name: cfg.Server.Name,
+-		Port: cfg.Server.Port,
+-	}
+-	srv := server.NewServer(legacyServerCfg, handler)
+-
+-	return &App{
+-		config: cfg,
+-		logger: log,
+-		server: srv,
+-	}
++    // 1. Load Internal Config
++    cfg, err := internalConfigs.InitConfigs()
++    if err != nil {
++        panic("failed to load config: " + err.Error())
++    }
++
++    // 2. Map Internal Config to Pkg Config for Logger
++    // (Assuming pkgConfigs.Logger has a 'Level' field)
++    legacyLoggerCfg := &pkgConfigs.Logger{
++        Level: cfg.Logger.Level,
++    }
++    log, err := logger.NewLogger(legacyLoggerCfg)
++    if err != nil {
++        panic("failed to initialize logger: " + err.Error())
++    }
++
++    postgresConn, err := pgx.NewPgxPool()
++    if err != nil {
++        panic("failed to connect to postgres: " + err.Error())
++    }
++    
++    redis, err := redisClient.NewRedisClient()
++    if err != nil {
++        panic("failed to connect to redis: " + err.Error())
++    }
++
++    fileStorage, err := minioFs.NewMinIOStorage(minioFs.MinIOConfig{
++        Bucket:    internalConfigs.MinioBucket,
++        Endpoint:  internalConfigs.MinioEndpoint,
++        AccessKey: internalConfigs.MinioAccessKey,
++        SecretKey: internalConfigs.MinioSecretKey,
++        Logger:    &log.Logger,
++    })
++    if err != nil {
++        panic("failed to initialize minio storage: " + err.Error())
++    }
++
++    limiter := customLimiter.NewRateLimiter(redis)
++
++    // 3. Map Internal Config to Pkg Config for SMS
++    legacySMSCfg := &pkgConfigs.SMSProvider{
++        APIKey:     cfg.SMS.APIKey,
++        SenderName: cfg.SMS.SenderName,
++    }
++    sms := smsProvider.NewSMSProvider(legacySMSCfg)
++    
++    // token := jwtToken.NewJwtTokenIssuer()
++    token := jwtToken.NewJwtTokenIssuer(
++        cfg.Security.JWTSecretKey,
++        cfg.Security.AccessTokenTTL,
++        cfg.Security.RefreshTokenTTL,
++    )
++    middleware := middlewares.NewMiddleware()
++
++    repository := repositories.NewRepository(postgresConn, &log.Logger)
++    
++    // Service uses Internal Config (ServiceConfig)
++    service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage)
++    
++    // Handler uses Internal Config
++    handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
++
++    // 4. Map Internal Config to Pkg Config for Server
++    legacyServerCfg := &pkgConfigs.Server{
++        Name: cfg.Server.Name,
++        Port: cfg.Server.Port,
++    }
++    srv := server.NewServer(legacyServerCfg, handler)
++
++    return &App{
++        config: cfg,
++        logger: log,
++        server: srv,
++    }
+ }
+ 
+ func (a *App) Start() {
+diff --git a/internal/configs/config.go b/internal/configs/config.go
+index fb6d249..22c496a 100644
+--- a/internal/configs/config.go
++++ b/internal/configs/config.go
+@@ -14,8 +14,6 @@ type Config struct {
+ 	SMS      SMSConfig
+ 	Server   ServerConfig
+ 	Service  ServiceConfig
+-	Redis    RedisConfig
+-	Minio    MinioConfig
+ }
+ 
+ type AppConfig struct {
+@@ -26,9 +24,7 @@ type AppConfig struct {
+ type SecurityConfig struct {
+ 	JWTSecretKey            string
+ 	AccessTokenTTL          time.Duration
+-	AccessTokenSecret       string
+ 	RefreshTokenTTL         time.Duration
+-	RefreshTokenSecret      string
+ 	OTPLength               int
+ 	OTPDuration             time.Duration
+ 	OTPMaxAttempts          int
+@@ -42,9 +38,7 @@ type DatabaseConfig struct {
+ }
+ 
+ type LoggerConfig struct {
+-	Level         string
+-	LogPath       string
+-	IncludeCaller string
++	Level string
+ }
+ 
+ type SMSConfig struct {
+@@ -53,30 +47,21 @@ type SMSConfig struct {
+ }
+ 
+ type ServerConfig struct {
+-	Name         string
+-	Port         string
+-	Host         string
+-	WriteTimeout string
+-	ReadTimeout  string
++	Name string
++	Port string
+ }
+ 
+ type ServiceConfig struct {
+ 	Security SecurityConfig
+ }
+ 
+-type RedisConfig struct {
+-	Host      string
+-	Port      string
+-	DefaultDB int
+-	Timeout   string
+-}
+-
+-type MinioConfig struct {
+-	Bucket    string
+-	Endpoint  string
+-	AccessKey string
+-	SecretKey string
+-}
++// Global constants (оставляем как есть, хотя лучше вынести в ENV)
++const (
++	MinioBucket    = "shb-files"
++	MinioEndpoint  = "minio:9000"
++	MinioAccessKey = "minioadmin"
++	MinioSecretKey = "minioadmin"
++)
+ 
+ // Helper для чтения ENV с дефолтным значением
+ func getEnv(key, fallback string) string {
+@@ -112,9 +97,7 @@ func InitConfigs() (*Config, error) {
+ 		Security: SecurityConfig{
+ 			JWTSecretKey:            getEnv("JWT_SECRET_KEY", "super_secret_dev_key"),
+ 			AccessTokenTTL:          15 * time.Minute,
+-			AccessTokenSecret:       getEnv("ACCESS_TOKEN_SECRET", "super_secret_dev_key"),
+ 			RefreshTokenTTL:         720 * time.Hour,
+-			RefreshTokenSecret:      getEnv("REFRESH_TOKEN_SECRET", "super_secret_dev_key"),
+ 			OTPLength:               4,
+ 			OTPDuration:             5 * time.Minute,
+ 			OTPMaxAttempts:          3,
+@@ -126,20 +109,15 @@ func InitConfigs() (*Config, error) {
+ 			DSN: dsn, // Теперь DSN формируется динамически!
+ 		},
+ 		Logger: LoggerConfig{
+-			Level:         getEnv("LOG_LEVEL", "debug"),
+-			LogPath:       getEnv("LOG_PATH", ""),
+-			IncludeCaller: getEnv("INCLUDE_CALLER", ""),
++			Level: getEnv("LOG_LEVEL", "debug"),
+ 		},
+ 		SMS: SMSConfig{
+ 			APIKey:     getEnv("SMS_API_KEY", "mock"),
+ 			SenderName: getEnv("SMS_SENDER_NAME", "Payvand"),
+ 		},
+ 		Server: ServerConfig{
+-			Name:         "SocialHousingBackend",
+-			Port:         getEnv("APP_PORT", ":8000"),
+-			Host:         getEnv("APP_HOST", "localhost"),
+-			WriteTimeout: getEnv("APP_WRITE_TIMEOUT", "10s"),
+-			ReadTimeout:  getEnv("APP_READ_TIMEOUT", "10s"),
++			Name: "SocialHousingBackend",
++			Port: getEnv("APP_PORT", ":8000"),
+ 		},
+ 		Service: ServiceConfig{
+ 			Security: SecurityConfig{
+@@ -149,17 +127,5 @@ func InitConfigs() (*Config, error) {
+ 				OTPMaxAttemptsBlockTime: 30 * time.Minute,
+ 			},
+ 		},
+-		Redis: RedisConfig{
+-			Host:      getEnv("REDIS_HOST", "localhost"),
+-			Port:      getEnv("REDIS_PORT", "6379"),
+-			DefaultDB: 0,
+-			Timeout:   getEnv("REDIS_TIMEOUT", "5s"),
+-		},
+-		Minio: MinioConfig{
+-			Bucket:    getEnv("MINIO_BUCKET", "minio"),
+-			Endpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
+-			AccessKey: getEnv("MINIO_ACCESS_KEY", "minio"),
+-			SecretKey: getEnv("MINIO_SECRET_KEY", "minio"),
+-		},
+ 	}, nil
+-}
++}
+\ No newline at end of file
+diff --git a/internal/handlers/handler.go b/internal/handlers/handler.go
+index 8eb65e5..1f4c0a5 100644
+--- a/internal/handlers/handler.go
++++ b/internal/handlers/handler.go
+@@ -6,7 +6,6 @@ import (
+ 	"net/http"
+ 	"shb/internal/configs"
+ 	"shb/internal/models"
+-	"shb/internal/repositories/filters"
+ 	"shb/pkg/middlewares"
+ 	"shb/pkg/myerrors"
+ 
+@@ -17,90 +16,90 @@ import (
+ )
+ 
+ type Limiter interface {
+-	Allow(ctx context.Context, key string, limit int, windowSeconds int) (bool, error)
+-	ResetAttempts(ctx context.Context, key string) error
++    Allow(ctx context.Context, key string, limit int, windowSeconds int) (bool, error)
++    ResetAttempts(ctx context.Context, key string) error
+ }
+ type IService interface {
+-	SendOTP(ctx context.Context, receiver string) (int, error)
+-	ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
+-	Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
+-	Register(ctx context.Context, phone, password, fullName string, institutionID int) (*models.TokenResponse, error)
+-
+-	GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error)
+-	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
+-	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
+-
+-	CreateNeed(ctx context.Context, need *models.Need) (int, error)
+-	UpdateNeed(ctx context.Context, n *models.Need) error
+-	DeleteNeed(ctx context.Context, id int) error
+-	GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error)
++    SendOTP(ctx context.Context, receiver string) (int, error)
++    ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
++    Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
++    Register(ctx context.Context, phone, password, fullName string, institutionID int) (*models.TokenResponse, error)
++    
++    GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
++    CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
++    GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
++    
++    CreateNeed(ctx context.Context, need *models.Need) (int, error)
++    UpdateNeed(ctx context.Context, n *models.Need) error
++    DeleteNeed(ctx context.Context, id int) error
++    GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error)
+ }
+ 
+ type Handler struct {
+-	service    IService
+-	limiter    Limiter                 // CHANGED: Use local interface
+-	middleware *middlewares.Middleware // CHANGED: Use imported type (pointer likely)
+-	logger     *zerolog.Logger
+-	cfg        *configs.Config
++    service    IService
++    limiter    Limiter                 // CHANGED: Use local interface
++    middleware *middlewares.Middleware // CHANGED: Use imported type (pointer likely)
++    logger     *zerolog.Logger
++    cfg        *configs.Config
+ }
+ 
+ func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middleware, logger *zerolog.Logger, cfg *configs.Config) *Handler {
+-	return &Handler{
+-		service:    service,
+-		limiter:    limiter,
+-		middleware: middleware,
+-		logger:     logger,
+-		cfg:        cfg,
+-	}
++    return &Handler{
++        service:    service,
++        limiter:    limiter,
++        middleware: middleware,
++        logger:     logger,
++        cfg:        cfg,
++    }
+ }
+ 
+ func (h *Handler) InitRoutes() *gin.Engine {
+-	router := gin.New()
+-	// Middleware: CORS, Recovery, RequestID
+-	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
+-	router.NoRoute(h.noRoute)
+-
+-	// Health check
+-	router.GET("/ping", h.ping)
+-
+-	v1 := router.Group("/api/v1")
+-	{
+-		// Swagger docs
+-		v1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
+-			ginSwagger.URL("/api/v1/docs/swagger.yaml"),
+-		))
+-		v1.Static("/docs", "./docs")
+-
+-		// Auth
+-		v1.POST("/send_otp", h.sendOTP)
+-		v1.POST("/confirm_otp", h.confirmOTP)
+-		v1.POST("/login", h.login)
+-		v1.POST("/register", h.register)
+-
+-		v1.GET("/check_access", h.middleware.AccessToken())
+-		v1.GET("/check_refresh", h.middleware.RefreshToken())
+-
+-		// Institutions (Public)
+-		v1.GET("/institutions", h.getAllInstitutions)
+-		// ВОТ ЭТА СТРОКА НУЖНА ДЛЯ ДЕТАЛЬНОЙ СТРАНИЦЫ:
+-		v1.GET("/institutions/:id", h.getInstitutionByID)
+-
+-		v1.POST("/institutions", h.createInstitution)
+-
+-		// Needs (Public) - просмотр нужд конкретного учреждения
+-		v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
+-		// Или можно использовать /needs/institution/:id, главное чтобы совпадало с lib/api.ts
+-
+-		// Needs (Protected) - управление нуждами
+-		needs := v1.Group("/needs")
+-		needs.Use(h.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
+-		{
+-			needs.POST("", h.createNeed)
+-			needs.PUT("/:id", h.updateNeed)
+-			needs.DELETE("/:id", h.deleteNeed)
+-		}
+-	}
+-	return router
++    router := gin.New()
++    // Middleware: CORS, Recovery, RequestID
++    router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
++    router.NoRoute(h.noRoute)
++    
++    // Health check
++    router.GET("/ping", h.ping)
++
++    v1 := router.Group("/api/v1")
++    {
++        // Swagger docs
++        v1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
++            ginSwagger.URL("/api/v1/docs/swagger.yaml"),
++        ))
++        v1.Static("/docs", "./docs")
++
++        // Auth
++        v1.POST("/send_otp", h.sendOTP)
++        v1.POST("/confirm_otp", h.confirmOTP)
++        v1.POST("/login", h.login)
++        v1.POST("/register", h.register)
++
++        v1.GET("/check_access", h.middleware.AccessToken())
++        v1.GET("/check_refresh", h.middleware.RefreshToken())
++
++        // Institutions (Public)
++        v1.GET("/institutions", h.getAllInstitutions)
++        // ВОТ ЭТА СТРОКА НУЖНА ДЛЯ ДЕТАЛЬНОЙ СТРАНИЦЫ:
++        v1.GET("/institutions/:id", h.getInstitutionByID) 
++        
++        v1.POST("/institutions", h.createInstitution)
++        
++        // Needs (Public) - просмотр нужд конкретного учреждения
++        v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
++        // Или можно использовать /needs/institution/:id, главное чтобы совпадало с lib/api.ts
++
++        // Needs (Protected) - управление нуждами
++        needs := v1.Group("/needs")
++        needs.Use(h.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
++        {
++            needs.POST("", h.createNeed)
++            needs.PUT("/:id", h.updateNeed)
++            needs.DELETE("/:id", h.deleteNeed)
++        }
++    }
++    return router
+ }
+ 
+ func (h *Handler) ping(context *gin.Context) {
+@@ -144,4 +143,4 @@ func (h *Handler) handleError(c *gin.Context, err error) {
+ 		c.JSON(http.StatusInternalServerError, myerrors.InternalError())
+ 	}
+ 	c.Abort()
+-}
++}
+\ No newline at end of file
+diff --git a/internal/handlers/institution.go b/internal/handlers/institution.go
+index bcc382f..9b14a30 100644
+--- a/internal/handlers/institution.go
++++ b/internal/handlers/institution.go
+@@ -2,7 +2,6 @@ package handlers
+ 
+ import (
+ 	"shb/internal/models"
+-	"shb/internal/repositories/filters"
+ 	"shb/pkg/myerrors"
+ 	"strconv"
+ 
+@@ -21,17 +20,11 @@ import (
+ // @Router /institutions [get]
+ func (h *Handler) getAllInstitutions(c *gin.Context) {
+ 	ctx := c.Request.Context()
++	city := c.Query("city")
+ 
+-	var filter filters.InstitutionFilter
+-
+-	if err := c.BindQuery(&filter); err != nil {
+-		h.logger.Error().Err(err).Msg("Error binding filters: " + err.Error())
+-		h.handleError(c, myerrors.ErrGeneral)
+-	}
+-
+-	institutions, err := h.service.GetAllInstitutions(ctx, filter)
++	institutions, err := h.service.GetAllInstitutions(ctx, city)
+ 	if err != nil {
+-		h.logger.Error().Err(err).Msg("failed to get institutions")
++		h.logger.Error().Err(err).Str("city", city).Msg("failed to get institutions")
+ 		h.handleError(c, myerrors.ErrGeneral)
+ 		return
+ 	}
+@@ -70,20 +63,20 @@ func (h *Handler) createInstitution(c *gin.Context) {
+ }
+ 
+ func (h *Handler) getInstitutionByID(c *gin.Context) {
+-	idStr := c.Param("id")
+-	id, err := strconv.Atoi(idStr)
+-	if err != nil {
+-		h.handleError(c, myerrors.NewBadRequestErr("invalid id"))
+-		return
+-	}
++    idStr := c.Param("id")
++    id, err := strconv.Atoi(idStr)
++    if err != nil {
++        h.handleError(c, myerrors.NewBadRequestErr("invalid id"))
++        return
++    }
+ 
+-	institution, err := h.service.GetInstitutionByID(c.Request.Context(), id)
+-	if err != nil {
+-		// Здесь можно добавить проверку на sql.ErrNoRows и возвращать 404
+-		h.logger.Error().Err(err).Int("id", id).Msg("failed to get institution")
+-		h.handleError(c, myerrors.ErrGeneral)
+-		return
+-	}
++    institution, err := h.service.GetInstitutionByID(c.Request.Context(), id)
++    if err != nil {
++        // Здесь можно добавить проверку на sql.ErrNoRows и возвращать 404
++        h.logger.Error().Err(err).Int("id", id).Msg("failed to get institution")
++        h.handleError(c, myerrors.ErrGeneral)
++        return
++    }
+ 
+-	h.success(c, institution)
+-}
++    h.success(c, institution)
++}
+\ No newline at end of file
+diff --git a/internal/repositories/filters/institutionFilter.go b/internal/repositories/filters/institutionFilter.go
+deleted file mode 100644
+index ee7e5de..0000000
+--- a/internal/repositories/filters/institutionFilter.go
++++ /dev/null
+@@ -1,95 +0,0 @@
+-package filters
+-
+-import (
+-	"fmt"
+-	"time"
+-)
+-
+-type InstitutionFilter struct {
+-	Name          string     `form:"name"`
+-	Type          string     `form:"type"`
+-	City          string     `form:"city"`
+-	Region        string     `form:"region"`
+-	Address       string     `form:"address"`
+-	Phone         string     `form:"phone"`
+-	Email         string     `form:"email"`
+-	ActivityHours string     `form:"activity_hours"`
+-	CreatedAtFrom *time.Time `form:"created_at_from"`
+-	CreatedAtTo   *time.Time `form:"created_at_to"`
+-	NeedsCount    *int       `form:"needs_count"`
+-	OrderBy       string     `form:"order_by"`
+-	IsDeleted     bool       `form:"is_deleted"`
+-	DeletedAtFrom *time.Time `form:"deleted_at_from"`
+-	DeletedAtTo   *time.Time `form:"deleted_at_to"`
+-}
+-
+-func BuildInstitutionFilter(filter InstitutionFilter) (string, []interface{}) {
+-	filterQuery := ""
+-	var args []interface{}
+-
+-	// Индекс параметра чтобы не было путаницы с последовательностью аргументов
+-	idx := 1
+-
+-	// is_deleted — всегда первый
+-	filterQuery += fmt.Sprintf(" WHERE is_deleted = $%d", idx)
+-	args = append(args, filter.IsDeleted)
+-	idx++
+-
+-	if filter.Name != "" {
+-		filterQuery += fmt.Sprintf(" AND name ILIKE $%d", idx)
+-		args = append(args, "%"+filter.Name+"%")
+-		idx++
+-	}
+-
+-	if filter.Type != "" {
+-		filterQuery += fmt.Sprintf(" AND type ILIKE $%d", idx)
+-		args = append(args, "%"+filter.Type+"%")
+-		idx++
+-	}
+-
+-	if filter.City != "" {
+-		filterQuery += fmt.Sprintf(" AND city ILIKE $%d", idx)
+-		args = append(args, "%"+filter.City+"%")
+-		idx++
+-	}
+-
+-	if filter.Region != "" {
+-		filterQuery += fmt.Sprintf(" AND region ILIKE $%d", idx)
+-		args = append(args, "%"+filter.Region+"%")
+-		idx++
+-	}
+-
+-	if filter.Address != "" {
+-		filterQuery += fmt.Sprintf(" AND address ILIKE $%d", idx)
+-		args = append(args, "%"+filter.Address+"%")
+-		idx++
+-	}
+-
+-	if filter.Phone != "" {
+-		filterQuery += fmt.Sprintf(" AND phone ILIKE $%d", idx)
+-		args = append(args, "%"+filter.Phone+"%")
+-		idx++
+-	}
+-
+-	if filter.Email != "" {
+-		filterQuery += fmt.Sprintf(" AND email ILIKE $%d", idx)
+-		args = append(args, "%"+filter.Email+"%")
+-		idx++
+-	}
+-
+-	if filter.ActivityHours != "" {
+-		filterQuery += fmt.Sprintf(" AND activity_hours ILIKE $%d", idx)
+-		args = append(args, "%"+filter.ActivityHours+"%")
+-		idx++
+-	}
+-
+-	// ORDER BY — ТОЛЬКО whitelist
+-	switch filter.OrderBy {
+-	case "asc":
+-		filterQuery += " ORDER BY id ASC"
+-	case "desc":
+-		filterQuery += " ORDER BY id DESC"
+-	}
+-
+-	return filterQuery, args
+-}
+diff --git a/internal/repositories/institution.go b/internal/repositories/institution.go
+index f7c7f45..2fadd66 100644
+--- a/internal/repositories/institution.go
++++ b/internal/repositories/institution.go
+@@ -4,12 +4,10 @@ import (
+ 	"context"
+ 	"fmt"
+ 	"shb/internal/models"
+-	"shb/internal/repositories/filters"
+ )
+-
+-func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error) {
+-	// Добавляем подзапрос для подсчета (COUNT)
+-	query := `
++func (r *Repository) GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error) {
++    // Добавляем подзапрос для подсчета (COUNT)
++    query := `
+         SELECT 
+             i.id, i.name, i.type, i.city, i.region, i.address, 
+             i.phone, i.email, i.description, i.activity_hours, 
+@@ -17,8 +15,13 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.Inst
+             (SELECT COUNT(*) FROM needs n WHERE n.institution_id = i.id) as needs_count 
+         FROM institutions i
+     `
+-	filterQuery, args := filters.BuildInstitutionFilter(filter)
+-	query += filterQuery
++	var args []interface{}
++	if city != "" {
++		query += " WHERE city = $1"
++		args = append(args, city)
++	}
++
++	query += " ORDER BY id DESC"
+ 
+ 	rows, err := r.postgres.Query(ctx, query, args...)
+ 	if err != nil {
+@@ -86,20 +89,20 @@ func (r *Repository) CreateInstitution(ctx context.Context, i *models.Institutio
+ }
+ 
+ func (r *Repository) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
+-	query := `
++    query := `
+         SELECT id, name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude, created_at, updated_at
+         FROM institutions
+         WHERE id = $1
+     `
+-	var i models.Institution
+-	// ВАЖНО: Убедись, что модель Institution совпадает с полями в базе
+-	err := r.postgres.QueryRow(ctx, query, id).Scan(
+-		&i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
+-		&i.Phone, &i.Email, &i.Description, &i.ActivityHours,
+-		&i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
+-	)
+-	if err != nil {
+-		return nil, fmt.Errorf("get institution by id: %w", err)
+-	}
+-	return &i, nil
+-}
++    var i models.Institution
++    // ВАЖНО: Убедись, что модель Institution совпадает с полями в базе
++    err := r.postgres.QueryRow(ctx, query, id).Scan(
++        &i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
++        &i.Phone, &i.Email, &i.Description, &i.ActivityHours,
++        &i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
++    )
++    if err != nil {
++        return nil, fmt.Errorf("get institution by id: %w", err)
++    }
++    return &i, nil
++}
+\ No newline at end of file
+diff --git a/internal/services/instituition.go b/internal/services/instituition.go
+index 06e4bf0..a7f483b 100644
+--- a/internal/services/instituition.go
++++ b/internal/services/instituition.go
+@@ -3,12 +3,11 @@ package services
+ import (
+ 	"context"
+ 	"shb/internal/models"
+-	"shb/internal/repositories/filters"
+ )
+ 
+-func (s *Service) GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error) {
++func (s *Service) GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error) {
+ 	// Здесь можно добавить логирование или кэширование
+-	return s.repo.GetAllInstitutions(ctx, filter)
++	return s.repo.GetAllInstitutions(ctx, city)
+ }
+ 
+ func (s *Service) CreateInstitution(ctx context.Context, i *models.Institution) (int, error) {
+@@ -16,5 +15,5 @@ func (s *Service) CreateInstitution(ctx context.Context, i *models.Institution)
+ }
+ 
+ func (s *Service) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
+-	return s.repo.GetInstitutionByID(ctx, id)
+-}
++    return s.repo.GetInstitutionByID(ctx, id)
++}
+\ No newline at end of file
+diff --git a/internal/services/service.go b/internal/services/service.go
+index 0e8a8ad..76978f5 100644
+--- a/internal/services/service.go
++++ b/internal/services/service.go
+@@ -4,7 +4,6 @@ import (
+ 	"context"
+ 	"shb/internal/configs"
+ 	"shb/internal/models"
+-	"shb/internal/repositories/filters"
+ 	"shb/pkg/db/cache"
+ 	"shb/pkg/external/fs"
+ 	"shb/pkg/external/sms"
+@@ -30,37 +29,37 @@ type IRepository interface {
+ 	IncreaseOTPAttempt(ctx context.Context, otpID int, phone string) error
+ 
+ 	// --- Institution Methods ---
+-	GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error)
++	GetAllInstitutions(ctx context.Context, city string) ([]*models.Institution, error)
+ 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
+ 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
+ 
+ 	// --- Needs Methods ---
+ 	CreateNeed(ctx context.Context, need *models.Need) (int, error)
+-	GetNeedByID(ctx context.Context, id int) (*models.Need, error)
+-	UpdateNeed(ctx context.Context, n *models.Need) error
+-	DeleteNeed(ctx context.Context, id int) error
++    GetNeedByID(ctx context.Context, id int) (*models.Need, error)
++    UpdateNeed(ctx context.Context, n *models.Need) error
++    DeleteNeed(ctx context.Context, id int) error
+ 	GetNeedsByInstitution(ctx context.Context, institutionID int) ([]*models.Need, error)
+-
++	
+ 	GetUserByID(ctx context.Context, id int) (*models.User, error)
+ }
+ type Service struct {
+-	cfg    *configs.ServiceConfig // CHANGED: from configs.Service to configs.ServiceConfig
+-	logger *zerolog.Logger
+-	repo   IRepository
+-	cache  cache.ICache
+-	sms    sms.ISmsAdapter
+-	token  tokens.ITokenIssuer
+-	fs     fs.Storage
++    cfg    *configs.ServiceConfig // CHANGED: from configs.Service to configs.ServiceConfig
++    logger *zerolog.Logger
++    repo   IRepository
++    cache  cache.ICache
++    sms    sms.ISmsAdapter
++    token  tokens.ITokenIssuer
++    fs     fs.Storage
+ }
+ 
+ func NewService(cfg *configs.ServiceConfig, log *zerolog.Logger, repo IRepository, cache cache.ICache,
+-	sms sms.ISmsAdapter, token tokens.ITokenIssuer, fs fs.Storage) *Service {
+-	return &Service{
+-		cfg:    cfg,
+-		logger: log,
+-		repo:   repo,
+-		cache:  cache,
+-		sms:    sms,
+-		token:  token,
+-		fs:     fs}
+-}
++    sms sms.ISmsAdapter, token tokens.ITokenIssuer, fs fs.Storage) *Service {
++    return &Service{
++        cfg:    cfg,
++        logger: log,
++        repo:   repo,
++        cache:  cache,
++        sms:    sms,
++        token:  token,
++        fs:     fs}
++}
+\ No newline at end of file
+diff --git a/migration/shb.sql b/migration/shb.sql
+index cdfee0c..a6836b4 100644
+--- a/migration/shb.sql
++++ b/migration/shb.sql
+@@ -13,9 +13,7 @@ CREATE TABLE IF NOT EXISTS institutions (
+     latitude DECIMAL(9,6),                  -- Координаты
+     longitude DECIMAL(9,6),
+     created_at TIMESTAMPTZ DEFAULT NOW(),
+-    updated_at TIMESTAMPTZ,
+-    is_deleted BOOLEAN DEFAULT FALSE,
+-    deleted_at TIMESTAMPTZ DEFAULT NULL
++    updated_at TIMESTAMPTZ
+ );
+ 
+ -- Таблица пользователей
+@@ -29,18 +27,14 @@ CREATE TABLE IF NOT EXISTS users (
+     role VARCHAR(50) NOT NULL DEFAULT 'donor', -- 'super_admin', 'employee', 'donor'
+     is_active BOOLEAN DEFAULT TRUE,
+     created_at TIMESTAMPTZ DEFAULT NOW(),
+-    updated_at TIMESTAMPTZ,
+-    is_deleted BOOLEAN DEFAULT FALSE,
+-    deleted_at TIMESTAMPTZ DEFAULT NULL
++    updated_at TIMESTAMPTZ
+ );
+ 
+ -- Категории нужд (Продукты, Гигиена, Одежда...)
+ CREATE TABLE IF NOT EXISTS categories (
+     id SERIAL PRIMARY KEY,
+     name VARCHAR(100) UNIQUE NOT NULL,
+-    created_at TIMESTAMPTZ DEFAULT NOW(),
+-    is_deleted BOOLEAN DEFAULT FALSE,
+-    deleted_at TIMESTAMPTZ DEFAULT NULL
++    created_at TIMESTAMPTZ DEFAULT NOW()
+ );
+ 
+ -- Таблица нужд (Потребности)
+@@ -55,9 +49,7 @@ CREATE TABLE IF NOT EXISTS needs (
+     received_qty DECIMAL(10,2) DEFAULT 0,   -- Сколько уже собрали
+     urgency VARCHAR(20) DEFAULT 'medium',   -- 'low', 'medium', 'high' (для сортировки)
+     created_at TIMESTAMPTZ DEFAULT NOW(),
+-    updated_at TIMESTAMPTZ,
+-    is_deleted BOOLEAN DEFAULT FALSE,
+-    deleted_at TIMESTAMPTZ DEFAULT NULL
++    updated_at TIMESTAMPTZ
+ );
+ 
+ -- Таблица OTP (Одноразовые пароли для входа/регистрации)
+@@ -70,7 +62,5 @@ CREATE TABLE IF NOT EXISTS otp (
+     is_verified BOOLEAN DEFAULT FALSE,
+     sent_at TIMESTAMPTZ DEFAULT NOW(),
+     expires_at TIMESTAMPTZ,
+-    updated_at TIMESTAMPTZ,
+-    is_deleted BOOLEAN DEFAULT FALSE,
+-    deleted_at TIMESTAMPTZ DEFAULT NULL
++    updated_at TIMESTAMPTZ
+ );
+\ No newline at end of file
+diff --git a/pkg/configs/config.go b/pkg/configs/config.go
+new file mode 100644
+index 0000000..c45fd2c
+--- /dev/null
++++ b/pkg/configs/config.go
+@@ -0,0 +1,79 @@
++package configs
++
++import (
++	"time"
++
++	"github.com/spf13/viper"
++)
++
++func InitConfigs() (*Config, error) {
++	viper.AddConfigPath("./configs")
++	viper.SetConfigName("config")
++	viper.SetConfigType("yml")
++	err := viper.ReadInConfig()
++	if err != nil {
++		return nil, err
++	}
++	var cfg Config
++	if err = viper.Unmarshal(&cfg); err != nil {
++		return nil, err
++	}
++
++	return &cfg, nil
++}
++
++type Config struct {
++	App     App
++	Security SecurityConfig
++	Server  Server
++	Service Service
++	Logger  Logger
++	SMS     SMSProvider
++}
++
++type App struct {
++}
++type AppConfig struct {
++    Port string
++}
++
++type SecurityConfig struct {
++    SecretKey string
++}
++
++type DatabaseConfig struct {
++    DSN string
++}
++
++type Server struct {
++	Name         string
++	Host         string
++	Port         string
++	WriteTimeout int64
++	ReadTimeout  int64
++}
++
++type Logger struct {
++	LogPath       string
++	Level         string
++	IncludeCaller bool
++}
++
++type Service struct {
++	Security Security
++}
++
++type Security struct {
++	SendOTPAttempts         int
++	SendOTPBlockTime        int
++	OTPLength               int
++	OTPMaxAttempts          int
++	MaxLoginAttempts        int
++	OTPMaxAttemptsBlockTime time.Duration
++	OTPDuration             time.Duration
++}
++
++type SMSProvider struct {
++    APIKey     string // <--- Этого поля не хватало
++    SenderName string // <--- И этого тоже
++}
+diff --git a/pkg/configs/config.yml b/pkg/configs/config.yml
+new file mode 100644
+index 0000000..ce0390b
+--- /dev/null
++++ b/pkg/configs/config.yml
+@@ -0,0 +1,22 @@
++server:
++  name: "my-app"
++  host: "localhost"
++  port: "8000"
++  writeTimeout: 30
++  readTimeout: 30
++
++logger:
++  logPath: ""
++  level: "info"
++  includeCaller: true
++
++service:
++  security:
++    sendOTPAttempts: 3
++    sendOTPBlockTime: 300
++    otpLength: 6
++    otpMaxAttempts: 3
++    maxLoginAttempts: 5
++    otpDuration: "5m"
++
++sms: {}
+\ No newline at end of file
+diff --git a/pkg/configs/secrets.go b/pkg/configs/secrets.go
+new file mode 100644
+index 0000000..09f7bac
+--- /dev/null
++++ b/pkg/configs/secrets.go
+@@ -0,0 +1,23 @@
++package configs
++
++import "os"
++
++var (
++	AccessSecret  = os.Getenv("ACCESS_SECRET")
++	AccessExpire  = os.Getenv("ACCESS_EXPIRE")
++	RefreshSecret = os.Getenv("REFRESH_SECRET")
++	RefreshExpire = os.Getenv("REFRESH_EXPIRE")
++)
++
++var (
++	MinioAccessKey = os.Getenv("MINIO_ACCESS_KEY")
++	MinioSecretKey = os.Getenv("MINIO_SECRET_KEY")
++	MinioEndpoint  = os.Getenv("MINIO_ENDPOINT")
++	MinioBucket    = os.Getenv("MINIO_BUCKET")
++)
++
++var (
++	RedisHost      = os.Getenv("REDIS_HOST")
++	RedisDefaultDB = os.Getenv("REDIS_DEFAULT_DB")
++	RedisTimeout   = os.Getenv("REDIS_TIMEOUT")
++)
+diff --git a/pkg/db/cache/redisClient/redis.go b/pkg/db/cache/redisClient/redis.go
+index 057a7f3..91a6911 100644
+--- a/pkg/db/cache/redisClient/redis.go
++++ b/pkg/db/cache/redisClient/redis.go
+@@ -4,7 +4,7 @@ import (
+ 	"context"
+ 	"fmt"
+ 	"os"
+-	"shb/internal/configs"
++	"shb/pkg/configs"
+ 	"strconv"
+ 	"time"
+ 
+@@ -16,31 +16,25 @@ type RedisCache struct {
+ }
+ 
+ func NewRedisClient() (*RedisCache, error) {
+-	cfg, err := configs.InitConfigs()
+-	if err != nil {
+-		return nil, err
+-	}
+-
+ 	// 1. Пытаемся получить настройки из переменных окружения (для Docker)
+ 	host := os.Getenv("REDIS_HOST")
+ 	port := os.Getenv("REDIS_PORT")
+ 
+ 	// 2. Если переменных нет, используем дефолтные значения или те, что в конфиге (для локального запуска)
+-	if cfg.Redis.Host == "" {
+-		host = "localhost"
++	if host == "" {
++		host = "localhost" 
+ 	}
+-	if cfg.Redis.Port == "" {
++	if port == "" {
+ 		port = "6379"
+ 	}
+ 
+ 	addr := fmt.Sprintf("%s:%s", host, port)
+ 
+ 	// Парсим остальные настройки
+-	db := cfg.Redis.DefaultDB
+-
++	db, _ := strconv.Atoi(configs.RedisDefaultDB)
++	
+ 	// Безопасное чтение таймаура
+-	timeoutInt, err := strconv.Atoi(cfg.Redis.Timeout)
+-
++	timeoutInt, _ := strconv.Atoi(configs.RedisTimeout)
+ 	if timeoutInt == 0 {
+ 		timeoutInt = 5 // Дефолтный таймаут 5 секунд, если в конфиге пусто
+ 	}
+@@ -76,4 +70,4 @@ func (r *RedisCache) Delete(ctx context.Context, key string) error {
+ 
+ func (r *RedisCache) Increment(ctx context.Context, key string) error {
+ 	return r.client.Incr(ctx, key).Err()
+-}
++}
+\ No newline at end of file
+diff --git a/pkg/external/sms/smsProvider/smsProvider.go b/pkg/external/sms/smsProvider/smsProvider.go
+index 5352740..4aec330 100644
+--- a/pkg/external/sms/smsProvider/smsProvider.go
++++ b/pkg/external/sms/smsProvider/smsProvider.go
+@@ -2,14 +2,14 @@ package smsProvider
+ 
+ import (
+ 	"context"
+-	"shb/internal/configs"
++	"shb/pkg/configs"
+ )
+ 
+ type SMSProvider struct {
+-	cfg *configs.SMSConfig
++	cfg *configs.SMSProvider
+ }
+ 
+-func NewSMSProvider(cfg *configs.SMSConfig) *SMSProvider {
++func NewSMSProvider(cfg *configs.SMSProvider) *SMSProvider {
+ 	return &SMSProvider{cfg: cfg}
+ }
+ 
+diff --git a/pkg/logger/log.go b/pkg/logger/log.go
+index 43727a0..2850b63 100644
+--- a/pkg/logger/log.go
++++ b/pkg/logger/log.go
+@@ -2,14 +2,12 @@ package logger
+ 
+ import (
+ 	"fmt"
++	"github.com/rs/zerolog"
+ 	"os"
+-	"shb/internal/configs"
++	"shb/pkg/configs"
+ 	"shb/pkg/constants"
+-	"strconv"
+ 	"strings"
+ 	"time"
+-
+-	"github.com/rs/zerolog"
+ )
+ 
+ type Logger struct {
+@@ -18,7 +16,7 @@ type Logger struct {
+ 
+ var instance *Logger
+ 
+-func NewLogger(cfg *configs.LoggerConfig) (*Logger, error) {
++func NewLogger(cfg *configs.Logger) (*Logger, error) {
+ 	var (
+ 		output *os.File
+ 		err    error
+@@ -47,9 +45,7 @@ func NewLogger(cfg *configs.LoggerConfig) (*Logger, error) {
+ 		Timestamp().
+ 		Logger()
+ 
+-	includeCaller, _ := strconv.ParseBool(cfg.IncludeCaller)
+-
+-	if includeCaller {
++	if cfg.IncludeCaller {
+ 		zl = zl.With().Caller().Logger()
+ 	}
+ 
+diff --git a/pkg/middlewares/middleware.go b/pkg/middlewares/middleware.go
+index 9367517..bb25f51 100644
+--- a/pkg/middlewares/middleware.go
++++ b/pkg/middlewares/middleware.go
+@@ -1,14 +1,13 @@
+ package middlewares
+ 
+ import (
++	"github.com/gin-gonic/gin"
++	"github.com/golang-jwt/jwt/v5"
+ 	"net/http"
+-	"shb/internal/configs"
+ 	"shb/internal/models"
++	"shb/pkg/configs"
+ 	"shb/pkg/constants"
+ 	"strings"
+-
+-	"github.com/gin-gonic/gin"
+-	"github.com/golang-jwt/jwt/v5"
+ )
+ 
+ type Middleware struct {
+@@ -17,14 +16,9 @@ type Middleware struct {
+ }
+ 
+ func NewMiddleware() *Middleware {
+-	cfg, err := configs.InitConfigs()
+-	if err != nil {
+-		panic("failed init new middleware: " + err.Error())
+-	}
+-
+ 	return &Middleware{
+-		accessSecret:  cfg.Security.AccessTokenSecret,
+-		refreshSecret: cfg.Security.RefreshTokenSecret,
++		accessSecret:  configs.AccessSecret,
++		refreshSecret: configs.RefreshSecret,
+ 	}
+ }
+ 
+diff --git a/pkg/server/server.go b/pkg/server/server.go
+index 048726b..d8caa5b 100644
+--- a/pkg/server/server.go
++++ b/pkg/server/server.go
+@@ -3,8 +3,8 @@ package server
+ import (
+ 	"context"
+ 	"net/http"
+-	"shb/internal/configs"
+ 	"shb/internal/handlers"
++	"shb/pkg/configs"
+ 	"time"
+ )
+ 
+@@ -20,16 +20,13 @@ func (s *Server) Shutdown(ctx context.Context) error {
+ 	return s.httpServer.Shutdown(ctx)
+ }
+ 
+-func NewServer(cfg *configs.ServerConfig, handler *handlers.Handler) *Server {
+-	readTimeout, _ := time.ParseDuration(cfg.ReadTimeout)
+-	writeTimeout, _ := time.ParseDuration(cfg.WriteTimeout)
+-
++func NewServer(cfg *configs.Server, handler *handlers.Handler) *Server {
+ 	return &Server{
+ 		httpServer: &http.Server{
+ 			Addr:           ":" + cfg.Port,
+ 			Handler:        handler.InitRoutes(),
+-			ReadTimeout:    readTimeout,
+-			WriteTimeout:   writeTimeout,
++			ReadTimeout:    time.Duration(cfg.ReadTimeout) * time.Second,
++			WriteTimeout:   time.Duration(cfg.WriteTimeout) * time.Second,
+ 			MaxHeaderBytes: http.DefaultMaxHeaderBytes,
+ 		},
+ 	}

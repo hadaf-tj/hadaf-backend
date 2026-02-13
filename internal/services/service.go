@@ -18,8 +18,11 @@ import (
 type IRepository interface {
 	// GetUserByPhone возвращает пользователя по номеру телефона.
 	GetUserByPhone(ctx context.Context, phone string) (*models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	GetUserByID(ctx context.Context, id int) (*models.User, error)
 	// CreateUser создаёт нового пользователя.
 	CreateUser(ctx context.Context, user *models.User) error
+	ActivateUser(ctx context.Context, id int) error
 
 	// SaveOTP сохраняет новый OTP-код в базу данных.
 	SaveOTP(ctx context.Context, o *models.OTP) error
@@ -42,8 +45,6 @@ type IRepository interface {
 	DeleteNeed(ctx context.Context, id int) error
 	GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error)
 
-	GetUserByID(ctx context.Context, id int) (*models.User, error)
-
 	// --- Booking Methods ---
 	CreateBooking(ctx context.Context, booking *models.Booking) (int, error)
 	GetBookingByID(ctx context.Context, id int) (*models.Booking, error)
@@ -58,6 +59,8 @@ type IRepository interface {
 	GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error)
 	JoinEvent(ctx context.Context, eventID, userID int) error
 	LeaveEvent(ctx context.Context, eventID, userID int) error
+
+	CreateNeedHistory(ctx context.Context, history *models.NeedsHistory) error
 }
 type Service struct {
 	cfg    *configs.ServiceConfig // CHANGED: from configs.Service to configs.ServiceConfig
@@ -78,7 +81,8 @@ func NewService(cfg *configs.ServiceConfig, log *zerolog.Logger, repo IRepositor
 		repo:   repo,
 		cache:  cache,
 		sms:    sms,
+		email:  email,
 		token:  token,
 		fs:     fs,
-		email:  email}
+	}
 }

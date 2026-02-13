@@ -161,10 +161,13 @@ func InitConfigs() (*Config, error) {
 		},
 		Service: ServiceConfig{
 			Security: SecurityConfig{
-				SendOTPAttempts:         3,
-				SendOTPBlockTime:        1 * time.Minute,
+				JWTSecretKey:            getEnv("JWT_SECRET_KEY", "super_secret"), // Нужно сервису для генерации ссылок или валидации
+				OTPLength:               4, // <--- ВОТ ЭТОГО НЕ ХВАТАЛО!
+				OTPDuration:             5 * time.Minute,
 				OTPMaxAttempts:          3,
 				OTPMaxAttemptsBlockTime: 30 * time.Minute,
+				SendOTPAttempts:         3,
+				SendOTPBlockTime:        1 * time.Minute,
 			},
 		},
 		Redis: RedisConfig{

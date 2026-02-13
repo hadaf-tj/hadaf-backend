@@ -23,7 +23,7 @@ func (h *Handler) getAllEvents(c *gin.Context) {
 
 	// Получаем ID текущего пользователя (если авторизован)
 	userID := 0
-	if id, exists := c.Get("user_id"); exists {
+	if id, exists := c.Get("userID"); exists {
 		if uid, ok := id.(int); ok {
 			userID = uid
 		}
@@ -42,7 +42,7 @@ func (h *Handler) createEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// Получаем ID создателя из context (установлено middleware)
-	creatorIDRaw, exists := c.Get("user_id")
+	creatorIDRaw, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
 		return
@@ -92,7 +92,7 @@ func (h *Handler) joinEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// Получаем ID пользователя
-	userIDRaw, exists := c.Get("user_id")
+	userIDRaw, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
 		return
@@ -124,7 +124,7 @@ func (h *Handler) leaveEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// Получаем ID пользователя
-	userIDRaw, exists := c.Get("user_id")
+	userIDRaw, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
 		return
