@@ -21,6 +21,8 @@ type InstitutionFilter struct {
 	IsDeleted     bool       `form:"is_deleted"`
 	DeletedAtFrom *time.Time `form:"deleted_at_from"`
 	DeletedAtTo   *time.Time `form:"deleted_at_to"`
+	Lat           *float64   `form:"lat"`
+	Lng           *float64   `form:"lng"`
 }
 
 func BuildGetAllInstitutionFilter(filter InstitutionFilter) (string, []interface{}) {

@@ -4,22 +4,62 @@ import (
 	"context"
 	"fmt"
 	"shb/internal/models"
-	"shb/internal/repositories/filters"
 )
 
-func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error) {
-	// Добавляем подзапрос для подсчета (COUNT)
+func (r *Repository) GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error) {
+	// 1. Формируем SELECT с расчетом дистанции и количества нужд
 	query := `
-        SELECT 
-            i.id, i.name, i.type, i.city, i.region, i.address, 
-            i.phone, i.email, i.description, i.activity_hours, 
-            i.latitude, i.longitude, i.created_at, i.updated_at
-        FROM institutions i
-    `
+		SELECT 
+			i.id, i.name, i.type, i.city, i.region, i.address, 
+			i.phone, i.email, i.description, i.activity_hours, 
+			i.latitude, i.longitude, i.created_at, i.updated_at,
+			(SELECT COUNT(*) FROM needs n WHERE n.institution_id = i.id AND n.is_deleted = false) as needs_count
+	`
 
-	// Добавляем фильтры
-	filterQuery, args := filters.BuildGetAllInstitutionFilter(filter)
-	query += filterQuery
+	// Добавляем расчет дистанции, если координаты переданы
+	if userLat != 0 && userLng != 0 {
+		query += fmt.Sprintf(`, (6371 * acos(
+				cos(radians(%f)) * cos(radians(i.latitude)) * cos(radians(i.longitude) - radians(%f)) + 
+				sin(radians(%f)) * sin(radians(i.latitude))
+			)) as distance`, userLat, userLng, userLat)
+	} else {
+		query += ", 0 as distance" // Заглушка, чтобы Scan не ломался, если координат нет
+	}
+
+	query += ` FROM institutions i WHERE i.is_deleted = false`
+
+	// 2. Добавляем фильтры
+	var args []interface{}
+	idx := 1
+
+	if search != "" {
+		query += fmt.Sprintf(" AND (i.name ILIKE $%d OR i.city ILIKE $%d)", idx, idx)
+		args = append(args, "%"+search+"%")
+		idx++
+	}
+
+	if iType != "" && iType != "all" {
+		query += fmt.Sprintf(" AND i.type = $%d", idx)
+		args = append(args, iType)
+		idx++
+	}
+
+	// 3. Сортировка
+	switch sortBy {
+	case "distance":
+		if userLat != 0 && userLng != 0 {
+			query += " ORDER BY distance ASC"
+		} else {
+			query += " ORDER BY i.id DESC"
+		}
+	case "needs_desc":
+		query += " ORDER BY needs_count DESC, i.id DESC"
+	default:
+		query += " ORDER BY i.id DESC"
+	}
+
+	// Логируем для отладки
+	r.logger.Debug().Str("query", query).Msg("GetAllInstitutions SQL")
 
 	rows, err := r.postgres.Query(ctx, query, args...)
 	if err != nil {
@@ -27,24 +67,33 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, filter filters.Inst
 	}
 	defer rows.Close()
 
-	var institutions []*models.Institution
+	institutions := make([]*models.Institution, 0)
+	
 	for rows.Next() {
-		var i dbInstitution
+		// Используем структуру для сканирования основных полей
+		// Но нам нужно создать переменные под поля, которые мы добавили в SELECT вручную
+		var i dbInstitution 
+		var needsCount int
+		var distance float64 // Просто считываем, но пока не сохраняем в модель (если нужно - добавь Distance в модель)
 
-		if err := rows.Scan(
+		// ВАЖНО: Порядок переменных должен строго соответствовать порядку в SELECT
+		err := rows.Scan(
 			&i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
 			&i.Phone, &i.Email, &i.Description, &i.ActivityHours,
 			&i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
-		); err != nil {
+			&needsCount, &distance,
+		)
+		if err != nil {
 			return nil, fmt.Errorf("scan institution: %w", err)
 		}
 
-		// Используем маппер
-		institutions = append(institutions, i.ToDomain())
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration: %w", err)
+		// Мапим из DB-модели в Domain-модель
+		domainInst := i.ToDomain()
+		
+		// Вручную проставляем то, чего не было в dbInstitution
+		domainInst.NeedsCount = needsCount
+		
+		institutions = append(institutions, domainInst)
 	}
 
 	return institutions, nil

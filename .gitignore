@@ -33,3 +33,4 @@ go.work.sum
 
 *.log
 *.DS_Store
+.agent/

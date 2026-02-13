@@ -8,7 +8,14 @@ import (
 
 func (s *Service) GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error) {
 	// Здесь можно добавить логирование или кэширование
-	return s.repo.GetAllInstitutions(ctx, filter)
+	var lat, lng float64
+	if filter.Lat != nil {
+		lat = *filter.Lat
+	}
+	if filter.Lng != nil {
+		lng = *filter.Lng
+	}
+	return s.repo.GetAllInstitutions(ctx, filter.Name, filter.Type, lat, lng, filter.OrderBy)
 }
 
 func (s *Service) CreateInstitution(ctx context.Context, i *models.Institution) (int, error) {

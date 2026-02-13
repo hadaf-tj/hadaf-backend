@@ -31,7 +31,7 @@ type IRepository interface {
 	IncreaseOTPAttempt(ctx context.Context, otpID int, phone string) error
 
 	// --- Institution Methods ---
-	GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error)
+	GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
 

@@ -81,6 +81,63 @@ func (_c *MockIRepository_CreateBooking_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
+// CreateEvent provides a mock function with given fields: ctx, e
+func (_m *MockIRepository) CreateEvent(ctx context.Context, e *models.Event) (int, error) {
+	ret := _m.Called(ctx, e)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateEvent")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *models.Event) (int, error)); ok {
+		return rf(ctx, e)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *models.Event) int); ok {
+		r0 = rf(ctx, e)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *models.Event) error); ok {
+		r1 = rf(ctx, e)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockIRepository_CreateEvent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateEvent'
+type MockIRepository_CreateEvent_Call struct {
+	*mock.Call
+}
+
+// CreateEvent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - e *models.Event
+func (_e *MockIRepository_Expecter) CreateEvent(ctx interface{}, e interface{}) *MockIRepository_CreateEvent_Call {
+	return &MockIRepository_CreateEvent_Call{Call: _e.mock.On("CreateEvent", ctx, e)}
+}
+
+func (_c *MockIRepository_CreateEvent_Call) Run(run func(ctx context.Context, e *models.Event)) *MockIRepository_CreateEvent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*models.Event))
+	})
+	return _c
+}
+
+func (_c *MockIRepository_CreateEvent_Call) Return(_a0 int, _a1 error) *MockIRepository_CreateEvent_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIRepository_CreateEvent_Call) RunAndReturn(run func(context.Context, *models.Event) (int, error)) *MockIRepository_CreateEvent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateInstitution provides a mock function with given fields: ctx, i
 func (_m *MockIRepository) CreateInstitution(ctx context.Context, i *models.Institution) (int, error) {
 	ret := _m.Called(ctx, i)
@@ -289,9 +346,69 @@ func (_c *MockIRepository_DeleteNeed_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
-// GetAllInstitutions provides a mock function with given fields: ctx, filter
-func (_m *MockIRepository) GetAllInstitutions(ctx context.Context, filter filters.InstitutionFilter) ([]*models.Institution, error) {
-	ret := _m.Called(ctx, filter)
+// GetAllEvents provides a mock function with given fields: ctx, userID
+func (_m *MockIRepository) GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllEvents")
+	}
+
+	var r0 []*models.EventResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int) ([]*models.EventResponse, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int) []*models.EventResponse); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*models.EventResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockIRepository_GetAllEvents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllEvents'
+type MockIRepository_GetAllEvents_Call struct {
+	*mock.Call
+}
+
+// GetAllEvents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID int
+func (_e *MockIRepository_Expecter) GetAllEvents(ctx interface{}, userID interface{}) *MockIRepository_GetAllEvents_Call {
+	return &MockIRepository_GetAllEvents_Call{Call: _e.mock.On("GetAllEvents", ctx, userID)}
+}
+
+func (_c *MockIRepository_GetAllEvents_Call) Run(run func(ctx context.Context, userID int)) *MockIRepository_GetAllEvents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int))
+	})
+	return _c
+}
+
+func (_c *MockIRepository_GetAllEvents_Call) Return(_a0 []*models.EventResponse, _a1 error) *MockIRepository_GetAllEvents_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIRepository_GetAllEvents_Call) RunAndReturn(run func(context.Context, int) ([]*models.EventResponse, error)) *MockIRepository_GetAllEvents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+
+// GetAllInstitutions provides a mock function with given fields: ctx, search, iType, userLat, userLng, sortBy
+func (_m *MockIRepository) GetAllInstitutions(ctx context.Context, search string, iType string, userLat float64, userLng float64, sortBy string) ([]*models.Institution, error) {
+	ret := _m.Called(ctx, search, iType, userLat, userLng, sortBy)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAllInstitutions")
@@ -299,19 +416,19 @@ func (_m *MockIRepository) GetAllInstitutions(ctx context.Context, filter filter
 
 	var r0 []*models.Institution
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, filters.InstitutionFilter) ([]*models.Institution, error)); ok {
-		return rf(ctx, filter)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, float64, float64, string) ([]*models.Institution, error)); ok {
+		return rf(ctx, search, iType, userLat, userLng, sortBy)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, filters.InstitutionFilter) []*models.Institution); ok {
-		r0 = rf(ctx, filter)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, float64, float64, string) []*models.Institution); ok {
+		r0 = rf(ctx, search, iType, userLat, userLng, sortBy)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*models.Institution)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, filters.InstitutionFilter) error); ok {
-		r1 = rf(ctx, filter)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, float64, float64, string) error); ok {
+		r1 = rf(ctx, search, iType, userLat, userLng, sortBy)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -326,14 +443,18 @@ type MockIRepository_GetAllInstitutions_Call struct {
 
 // GetAllInstitutions is a helper method to define mock.On call
 //   - ctx context.Context
-//   - filter filters.InstitutionFilter
-func (_e *MockIRepository_Expecter) GetAllInstitutions(ctx interface{}, filter interface{}) *MockIRepository_GetAllInstitutions_Call {
-	return &MockIRepository_GetAllInstitutions_Call{Call: _e.mock.On("GetAllInstitutions", ctx, filter)}
+//   - search string
+//   - iType string
+//   - userLat float64
+//   - userLng float64
+//   - sortBy string
+func (_e *MockIRepository_Expecter) GetAllInstitutions(ctx interface{}, search interface{}, iType interface{}, userLat interface{}, userLng interface{}, sortBy interface{}) *MockIRepository_GetAllInstitutions_Call {
+	return &MockIRepository_GetAllInstitutions_Call{Call: _e.mock.On("GetAllInstitutions", ctx, search, iType, userLat, userLng, sortBy)}
 }
 
-func (_c *MockIRepository_GetAllInstitutions_Call) Run(run func(ctx context.Context, filter filters.InstitutionFilter)) *MockIRepository_GetAllInstitutions_Call {
+func (_c *MockIRepository_GetAllInstitutions_Call) Run(run func(ctx context.Context, search string, iType string, userLat float64, userLng float64, sortBy string)) *MockIRepository_GetAllInstitutions_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(filters.InstitutionFilter))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(float64), args[4].(float64), args[5].(string))
 	})
 	return _c
 }
@@ -343,7 +464,7 @@ func (_c *MockIRepository_GetAllInstitutions_Call) Return(_a0 []*models.Institut
 	return _c
 }
 
-func (_c *MockIRepository_GetAllInstitutions_Call) RunAndReturn(run func(context.Context, filters.InstitutionFilter) ([]*models.Institution, error)) *MockIRepository_GetAllInstitutions_Call {
+func (_c *MockIRepository_GetAllInstitutions_Call) RunAndReturn(run func(context.Context, string, string, float64, float64, string) ([]*models.Institution, error)) *MockIRepository_GetAllInstitutions_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -580,6 +701,65 @@ func (_c *MockIRepository_GetBookingsByUser_Call) Return(_a0 []*models.Booking, 
 }
 
 func (_c *MockIRepository_GetBookingsByUser_Call) RunAndReturn(run func(context.Context, int) ([]*models.Booking, error)) *MockIRepository_GetBookingsByUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEventByID provides a mock function with given fields: ctx, id
+func (_m *MockIRepository) GetEventByID(ctx context.Context, id int) (*models.Event, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEventByID")
+	}
+
+	var r0 *models.Event
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int) (*models.Event, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int) *models.Event); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.Event)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockIRepository_GetEventByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEventByID'
+type MockIRepository_GetEventByID_Call struct {
+	*mock.Call
+}
+
+// GetEventByID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+func (_e *MockIRepository_Expecter) GetEventByID(ctx interface{}, id interface{}) *MockIRepository_GetEventByID_Call {
+	return &MockIRepository_GetEventByID_Call{Call: _e.mock.On("GetEventByID", ctx, id)}
+}
+
+func (_c *MockIRepository_GetEventByID_Call) Run(run func(ctx context.Context, id int)) *MockIRepository_GetEventByID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int))
+	})
+	return _c
+}
+
+func (_c *MockIRepository_GetEventByID_Call) Return(_a0 *models.Event, _a1 error) *MockIRepository_GetEventByID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIRepository_GetEventByID_Call) RunAndReturn(run func(context.Context, int) (*models.Event, error)) *MockIRepository_GetEventByID_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -983,6 +1163,102 @@ func (_c *MockIRepository_IncreaseOTPAttempt_Call) Return(_a0 error) *MockIRepos
 }
 
 func (_c *MockIRepository_IncreaseOTPAttempt_Call) RunAndReturn(run func(context.Context, int, string) error) *MockIRepository_IncreaseOTPAttempt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// JoinEvent provides a mock function with given fields: ctx, eventID, userID
+func (_m *MockIRepository) JoinEvent(ctx context.Context, eventID int, userID int) error {
+	ret := _m.Called(ctx, eventID, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for JoinEvent")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = rf(ctx, eventID, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockIRepository_JoinEvent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JoinEvent'
+type MockIRepository_JoinEvent_Call struct {
+	*mock.Call
+}
+
+// JoinEvent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - eventID int
+//   - userID int
+func (_e *MockIRepository_Expecter) JoinEvent(ctx interface{}, eventID interface{}, userID interface{}) *MockIRepository_JoinEvent_Call {
+	return &MockIRepository_JoinEvent_Call{Call: _e.mock.On("JoinEvent", ctx, eventID, userID)}
+}
+
+func (_c *MockIRepository_JoinEvent_Call) Run(run func(ctx context.Context, eventID int, userID int)) *MockIRepository_JoinEvent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockIRepository_JoinEvent_Call) Return(_a0 error) *MockIRepository_JoinEvent_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockIRepository_JoinEvent_Call) RunAndReturn(run func(context.Context, int, int) error) *MockIRepository_JoinEvent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// LeaveEvent provides a mock function with given fields: ctx, eventID, userID
+func (_m *MockIRepository) LeaveEvent(ctx context.Context, eventID int, userID int) error {
+	ret := _m.Called(ctx, eventID, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LeaveEvent")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = rf(ctx, eventID, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockIRepository_LeaveEvent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LeaveEvent'
+type MockIRepository_LeaveEvent_Call struct {
+	*mock.Call
+}
+
+// LeaveEvent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - eventID int
+//   - userID int
+func (_e *MockIRepository_Expecter) LeaveEvent(ctx interface{}, eventID interface{}, userID interface{}) *MockIRepository_LeaveEvent_Call {
+	return &MockIRepository_LeaveEvent_Call{Call: _e.mock.On("LeaveEvent", ctx, eventID, userID)}
+}
+
+func (_c *MockIRepository_LeaveEvent_Call) Run(run func(ctx context.Context, eventID int, userID int)) *MockIRepository_LeaveEvent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockIRepository_LeaveEvent_Call) Return(_a0 error) *MockIRepository_LeaveEvent_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockIRepository_LeaveEvent_Call) RunAndReturn(run func(context.Context, int, int) error) *MockIRepository_LeaveEvent_Call {
 	_c.Call.Return(run)
 	return _c
 }
