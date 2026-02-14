@@ -166,28 +166,40 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.To
 }
 
 func (s *Service) Register(ctx context.Context, email, phone, password, fullName, role string, institutionID *int) (*models.TokenResponse, error) {
-	// 1. Проверки на существование (оставляем как есть)
-	// ...
+	// 1. Проверяем, не существует ли уже пользователь с таким email
+	existing, err := s.repo.GetUserByEmail(ctx, email)
+	if err == nil && existing != nil {
+		return nil, myerrors.NewBadRequestErr("Пользователь с таким email уже существует")
+	}
 
-	// 2. Создаем пользователя НЕАКТИВНЫМ
+	// 2. Хешируем пароль
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+	hashedStr := string(hashedPassword)
+
+	// 3. Создаем пользователя НЕАКТИВНЫМ (со всеми полями)
 	newUser := &models.User{
-		Email:    &email,
-		IsActive: false, // <--- ВАЖНО
+		Email:         &email,
+		Phone:         &phone,
+		FullName:      &fullName,
+		Password:      &hashedStr,
+		Role:          role,
+		InstitutionID: institutionID,
+		IsActive:      false,
 	}
 
 	if err := s.repo.CreateUser(ctx, newUser); err != nil {
 		return nil, err
 	}
 
-	// 3. ОТПРАВЛЯЕМ КОД ПОДТВЕРЖДЕНИЯ
-	// Используем email как receiver
+	// 4. ОТПРАВЛЯЕМ КОД ПОДТВЕРЖДЕНИЯ
 	if _, err := s.SendOTP(ctx, email); err != nil {
-		// Если не ушло — логируем, но юзера создали.
-		// (В идеале нужен роут "выслать код повторно")
 		s.logger.Error().Err(err).Msg("failed to send otp after register")
 	}
 
-	// 4. Возвращаем nil, так как токенов еще нет
+	// 5. Возвращаем nil, так как токенов еще нет (нужно подтвердить OTP)
 	return nil, nil
 }
 

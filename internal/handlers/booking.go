@@ -105,6 +105,37 @@ func (h *Handler) rejectBooking(c *gin.Context) {
 	h.success(c, "booking rejected")
 }
 
+func (h *Handler) completeBooking(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// Extract user ID from JWT token
+	userID, exists := c.Get("userID")
+	if !exists {
+		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
+		return
+	}
+
+	userIDInt, ok := userID.(int)
+	if !ok {
+		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
+		return
+	}
+
+	idStr := c.Param("id")
+	bookingID, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid booking ID"))
+		return
+	}
+
+	if err := h.service.CompleteBooking(ctx, bookingID, userIDInt); err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	h.success(c, "booking completed")
+}
+
 func (h *Handler) getInstitutionBookings(c *gin.Context) {
 	ctx := c.Request.Context()
 

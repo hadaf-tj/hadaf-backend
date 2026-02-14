@@ -11,6 +11,7 @@ type Need struct {
 	Unit          string     `json:"unit"`
 	RequiredQty   float64    `json:"required_qty"`
 	ReceivedQty   float64    `json:"received_qty"`
+	BookedQty     float64    `json:"booked_qty"`
 	Urgency       string     `json:"urgency"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at"`
