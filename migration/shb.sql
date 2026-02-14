@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone VARCHAR(20) UNIQUE,
     email VARCHAR(150) UNIQUE,
     password TEXT,                          -- Хеш пароля
-    role VARCHAR(50) NOT NULL DEFAULT 'donor', -- 'super_admin', 'employee', 'donor'
+    role VARCHAR(50) NOT NULL DEFAULT 'donor', -- 'super_admin', 'institution', 'donor'
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,

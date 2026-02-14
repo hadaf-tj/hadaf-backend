@@ -41,6 +41,7 @@ type IService interface {
 	CreateBooking(ctx context.Context, userID, needID int, quantity float64, note string) (int, error)
 	ApproveBooking(ctx context.Context, bookingID, institutionUserID int) error
 	RejectBooking(ctx context.Context, bookingID, institutionUserID int) error
+	CompleteBooking(ctx context.Context, bookingID, institutionUserID int) error
 	GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error)
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
 
@@ -50,6 +51,9 @@ type IService interface {
 	GetEventByID(ctx context.Context, id int) (*models.Event, error)
 	JoinEvent(ctx context.Context, eventID, userID int) error
 	LeaveEvent(ctx context.Context, eventID, userID int) error
+
+	// --- Stats Methods ---
+	GetPublicStats(ctx context.Context) (map[string]int, error)
 }
 
 type Handler struct {
@@ -94,6 +98,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			h.success(c, "valid")
 		})
 		v1.GET("/me", h.middleware.AuthMiddleware(), h.getMe)
+		v1.GET("/stats", h.getStats)
 
 		v1.GET("/institutions", h.getAllInstitutions)
 		v1.GET("/institutions/:id", h.getInstitutionByID)
@@ -121,8 +126,9 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		bookingMgmt := v1.Group("/bookings")
 		bookingMgmt.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
 		{
-			bookingMgmt.POST("/:id/approve", h.approveBooking)
-			bookingMgmt.POST("/:id/reject", h.rejectBooking)
+			bookingMgmt.PUT("/:id/approve", h.approveBooking)
+			bookingMgmt.PUT("/:id/reject", h.rejectBooking)
+			bookingMgmt.PUT("/:id/complete", h.completeBooking)
 		}
 
 		// Institution bookings (Protected) - просмотр откликов учреждения

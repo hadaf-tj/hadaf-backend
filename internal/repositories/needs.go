@@ -77,8 +77,10 @@ func (r *Repository) CreateNeedHistory(ctx context.Context, history *models.Need
 
 func (r *Repository) GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error) {
 	query := `
-		SELECT id, institution_id, name, description, unit, required_qty, received_qty, urgency, created_at
-		FROM needs
+		SELECT n.id, n.institution_id, n.name, n.description, n.unit, n.required_qty, n.received_qty,
+			COALESCE((SELECT SUM(b.quantity) FROM bookings b WHERE b.need_id = n.id AND b.status = 'pending' AND b.is_deleted = false), 0) AS booked_qty,
+			n.urgency, n.created_at
+		FROM needs n
 	`
 	filterQuery, args := filters.GetNeedsByInstitution(filter, institutionID)
 	query += filterQuery
@@ -99,7 +101,7 @@ func (r *Repository) GetNeedsByInstitution(ctx context.Context, filter filters.N
 	for rows.Next() {
 		var n models.Need
 		if err := rows.Scan(
-			&n.ID, &n.InstitutionID, &n.Name, &n.Description, &n.Unit, &n.RequiredQty, &n.ReceivedQty, &n.Urgency, &n.CreatedAt,
+			&n.ID, &n.InstitutionID, &n.Name, &n.Description, &n.Unit, &n.RequiredQty, &n.ReceivedQty, &n.BookedQty, &n.Urgency, &n.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

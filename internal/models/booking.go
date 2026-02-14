@@ -18,7 +18,8 @@ type Booking struct {
 
 // Константы статусов бронирования
 const (
-	BookingStatusPending  = "pending"
-	BookingStatusApproved = "approved"
-	BookingStatusRejected = "rejected"
+	BookingStatusPending   = "pending"
+	BookingStatusApproved  = "approved"
+	BookingStatusRejected  = "rejected"
+	BookingStatusCompleted = "completed"
 )

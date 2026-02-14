@@ -86,9 +86,9 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, search string, iTyp
 		}
 
 		// Используем маппер
-		institutions = append(institutions, i.ToDomain())
 		domainInst := i.ToDomain()
-    	domainInst.NeedsCount = needsCount
+		domainInst.NeedsCount = needsCount
+		institutions = append(institutions, domainInst)
 	}
 
 	

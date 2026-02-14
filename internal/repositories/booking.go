@@ -155,3 +155,19 @@ func (r *Repository) GetBookingsByInstitution(ctx context.Context, institutionID
 	}
 	return bookings, nil
 }
+
+func (r *Repository) IncrementReceivedQty(ctx context.Context, needID int, qty float64) error {
+	query := `
+		UPDATE needs
+		SET received_qty = received_qty + $1, updated_at = NOW()
+		WHERE id = $2 AND is_deleted = false
+	`
+	result, err := r.postgres.Exec(ctx, query, qty, needID)
+	if err != nil {
+		return fmt.Errorf("increment received qty: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("need not found or already deleted")
+	}
+	return nil
+}

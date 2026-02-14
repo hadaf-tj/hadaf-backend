@@ -186,3 +186,47 @@ func (s *Service) GetBookingsByUser(ctx context.Context, userID int) ([]*models.
 	}
 	return bookings, nil
 }
+
+func (s *Service) CompleteBooking(ctx context.Context, bookingID, institutionUserID int) error {
+	// Validate booking exists
+	booking, err := s.repo.GetBookingByID(ctx, bookingID)
+	if err != nil {
+		return fmt.Errorf("get booking: %w", err)
+	}
+
+	// Get need to check institution
+	need, err := s.repo.GetNeedByID(ctx, booking.NeedID)
+	if err != nil {
+		return fmt.Errorf("get need: %w", err)
+	}
+
+	// Validate requester is employee/super_admin of the institution
+	requester, err := s.repo.GetUserByID(ctx, institutionUserID)
+	if err != nil {
+		return fmt.Errorf("get requester user: %w", err)
+	}
+
+	if requester.Role != models.RoleSuperAdmin && requester.Role != models.RoleEmployee {
+		return myerrors.NewForbiddenErr("only employees and super admins can complete bookings")
+	}
+
+	if requester.Role == models.RoleEmployee {
+		if requester.InstitutionID == nil || *requester.InstitutionID != need.InstitutionID {
+			return myerrors.NewForbiddenErr("you can only complete bookings for your own institution")
+		}
+	}
+
+	// Update status to "completed"
+	err = s.repo.UpdateBookingStatus(ctx, bookingID, models.BookingStatusCompleted)
+	if err != nil {
+		return fmt.Errorf("update booking status: %w", err)
+	}
+
+	// Increment received_qty on the need
+	err = s.repo.IncrementReceivedQty(ctx, booking.NeedID, booking.Quantity)
+	if err != nil {
+		return fmt.Errorf("increment received qty: %w", err)
+	}
+
+	return nil
+}

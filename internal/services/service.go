@@ -51,6 +51,7 @@ type IRepository interface {
 	GetBookingsByNeed(ctx context.Context, needID int) ([]*models.Booking, error)
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
 	UpdateBookingStatus(ctx context.Context, bookingID int, status string) error
+	IncrementReceivedQty(ctx context.Context, needID int, qty float64) error
 	GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error)
 
 	// --- Event Methods ---
@@ -59,6 +60,9 @@ type IRepository interface {
 	GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error)
 	JoinEvent(ctx context.Context, eventID, userID int) error
 	LeaveEvent(ctx context.Context, eventID, userID int) error
+
+	// --- Stats Methods ---
+	GetPublicStats(ctx context.Context) (map[string]int, error)
 
 	CreateNeedHistory(ctx context.Context, history *models.NeedsHistory) error
 }
