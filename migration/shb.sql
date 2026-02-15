@@ -1,7 +1,7 @@
 -- Таблица учреждений
 CREATE TABLE IF NOT EXISTS institutions (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL QNIQUE,
     type VARCHAR(100),                      -- 'Children' (Детский дом), 'Elderly' (Дом престарелых), 'Disabled' (Инвалиды)
     city VARCHAR(100),
     region VARCHAR(100),
