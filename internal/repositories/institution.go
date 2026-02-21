@@ -9,13 +9,18 @@ import (
 func (r *Repository) GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error) {
 	// Базовый SELECT с подсчетом активных нужд
 	// Если переданы координаты (не 0), считаем дистанцию (в километрах) по формуле Haversine
+	var args []interface{}
+	idx := 1
+
 	distanceSelect := "0 as distance"
 	if userLat != 0 && userLng != 0 {
 		distanceSelect = fmt.Sprintf(`
 			(6371 * acos(
-				cos(radians(%f)) * cos(radians(latitude)) * cos(radians(longitude) - radians(%f)) + 
-				sin(radians(%f)) * sin(radians(latitude))
-			)) as distance`, userLat, userLng, userLat)
+				cos(radians($%d)) * cos(radians(latitude)) * cos(radians(longitude) - radians($%d)) + 
+				sin(radians($%d)) * sin(radians(latitude))
+			)) as distance`, idx, idx+1, idx)
+		args = append(args, userLat, userLng)
+		idx += 2
 	}
 
 	query := fmt.Sprintf(`
@@ -28,9 +33,6 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, search string, iTyp
 		FROM institutions i
 		WHERE i.is_deleted = false
 	`, distanceSelect)
-
-	var args []interface{}
-	idx := 1
 
 	// 1. Поиск (Название ИЛИ Город)
 	if search != "" {
