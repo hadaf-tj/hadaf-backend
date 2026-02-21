@@ -55,7 +55,7 @@ func (h *Handler) createEvent(c *gin.Context) {
 
 	var input CreateEventInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		h.handleError(c, myerrors.NewBadRequestErr("invalid input: "+err.Error()))
+		h.handleError(c, myerrors.NewBadRequestErr("invalid input"))
 		return
 	}
 

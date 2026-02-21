@@ -24,6 +24,7 @@ func (h *Handler) createNeed(c *gin.Context) {
 }
 
 func (h *Handler) updateNeed(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
 
@@ -34,7 +35,27 @@ func (h *Handler) updateNeed(c *gin.Context) {
 	}
 	input.ID = id
 
-	if err := h.service.UpdateNeed(c.Request.Context(), &input); err != nil {
+	// H5: Ownership check — employee can only edit needs of their own institution
+	role, _ := c.Get("role")
+	if role.(string) != models.RoleSuperAdmin {
+		userID, _ := c.Get("userID")
+		need, err := h.service.GetNeedByID(ctx, id)
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+		user, err := h.service.GetUserByID(ctx, userID.(int))
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+		if user.InstitutionID == nil || *user.InstitutionID != need.InstitutionID {
+			h.handleError(c, myerrors.NewForbiddenErr("you can only edit needs of your own institution"))
+			return
+		}
+	}
+
+	if err := h.service.UpdateNeed(ctx, &input); err != nil {
 		h.handleError(c, err)
 		return
 	}
@@ -42,9 +63,31 @@ func (h *Handler) updateNeed(c *gin.Context) {
 }
 
 func (h *Handler) deleteNeed(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
-	if err := h.service.DeleteNeed(c.Request.Context(), id); err != nil {
+
+	// H5: Ownership check — employee can only delete needs of their own institution
+	role, _ := c.Get("role")
+	if role.(string) != models.RoleSuperAdmin {
+		userID, _ := c.Get("userID")
+		need, err := h.service.GetNeedByID(ctx, id)
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+		user, err := h.service.GetUserByID(ctx, userID.(int))
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+		if user.InstitutionID == nil || *user.InstitutionID != need.InstitutionID {
+			h.handleError(c, myerrors.NewForbiddenErr("you can only delete needs of your own institution"))
+			return
+		}
+	}
+
+	if err := h.service.DeleteNeed(ctx, id); err != nil {
 		h.handleError(c, err)
 		return
 	}

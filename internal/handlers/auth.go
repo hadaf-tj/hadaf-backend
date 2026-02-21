@@ -2,12 +2,40 @@ package handlers
 
 import (
 	"fmt"
+	"net/http"
+	"shb/internal/models"
 	"shb/pkg/myerrors"
 	"shb/pkg/utils"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
+
+// setTokenCookies sets httpOnly cookies for access and refresh tokens
+func (h *Handler) setTokenCookies(c *gin.Context, tokens *models.TokenResponse) {
+	accessMaxAge := int(h.cfg.Security.AccessTokenTTL.Seconds())
+	refreshMaxAge := int(h.cfg.Security.RefreshTokenTTL.Seconds())
+	isProduction := h.cfg.App.Env == "production"
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    tokens.AccessToken,
+		Path:     "/api",
+		MaxAge:   accessMaxAge,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    tokens.RefreshToken,
+		Path:     "/api",
+		MaxAge:   refreshMaxAge,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
 
 func (h *Handler) sendOTP(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -112,7 +140,8 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 		logger.Error().Err(err).Msg("limiter.ResetAttempts error")
 	}
 
-	logger.Debug().Str("receiver", in.Receiver).Msg("OTP sent successfully")
+	logger.Debug().Str("receiver", in.Receiver).Msg("OTP confirmed successfully")
+	h.setTokenCookies(c, response)
 	h.success(c, response)
 }
 
@@ -133,6 +162,18 @@ func (h *Handler) register(c *gin.Context) {
 	if err := c.ShouldBindJSON(&in); err != nil {
 		h.logger.Warn().Err(err).Msg("invalid register input")
 		h.handleError(c, myerrors.NewBadRequestErr("invalid input parameters"))
+		return
+	}
+
+	// C5: Validate password — minimum 8 characters
+	if len(in.Password) < 8 {
+		h.handleError(c, myerrors.NewBadRequestErr("password must be at least 8 characters"))
+		return
+	}
+
+	// M4: Validate role — only allow safe values
+	if in.Role != "volunteer" && in.Role != "employee" && in.Role != "donor" {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid role: must be volunteer, employee, or donor"))
 		return
 	}
 
@@ -166,6 +207,17 @@ func (h *Handler) login(c *gin.Context) {
 		return
 	}
 
+	// H4: Rate limit login — max 5 attempts per 15 minutes per email
+	loginKey := fmt.Sprintf("login:%s", in.Email)
+	allowed, err := h.limiter.Allow(ctx, loginKey, 5, 900) // 900 seconds = 15 min
+	if err != nil {
+		logger.Error().Err(err).Msg("rate limiter error")
+	}
+	if !allowed {
+		h.handleError(c, myerrors.NewTooManyRequestsErr("too many login attempts, try again later"))
+		return
+	}
+
 	response, err := h.service.Login(ctx, in.Email, in.Password)
 	if err != nil {
 		logger.Error().Err(err).Str("email", in.Email).Msg("service.Login error")
@@ -174,7 +226,34 @@ func (h *Handler) login(c *gin.Context) {
 	}
 
 	logger.Debug().Str("email", in.Email).Msg("login successfully")
+	h.setTokenCookies(c, response)
 	h.success(c, response)
+}
+
+// logout clears httpOnly auth cookies
+func (h *Handler) logout(c *gin.Context) {
+	isProduction := h.cfg.App.Env == "production"
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/api",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/api",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	h.success(c, gin.H{"message": "logged out"})
 }
 
 // getMe возвращает профиль текущего пользователя

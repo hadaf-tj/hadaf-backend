@@ -26,19 +26,23 @@ func NewMiddleware(jwtSecret string) *Middleware {
 // AuthMiddleware (код остается прежним, но использует m.jwtSecret)
 func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var tokenString string
+
+		// Try Authorization header first, then fall back to httpOnly cookie
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, myerrors.NewUnauthorizedErr("empty auth header"))
+		if authHeader != "" {
+			headerParts := strings.Split(authHeader, " ")
+			if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, myerrors.NewUnauthorizedErr("invalid auth header"))
+				return
+			}
+			tokenString = headerParts[1]
+		} else if cookie, err := c.Cookie("access_token"); err == nil && cookie != "" {
+			tokenString = cookie
+		} else {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, myerrors.NewUnauthorizedErr("missing auth credentials"))
 			return
 		}
-
-		headerParts := strings.Split(authHeader, " ")
-		if len(headerParts) != 2 || headerParts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, myerrors.NewUnauthorizedErr("invalid auth header"))
-			return
-		}
-
-		tokenString := headerParts[1]
 		claims := &models.CustomClaims{}
 
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -79,21 +83,26 @@ func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 // OptionalAccessToken - мягкая авторизация (не требует токена, но извлекает userID если есть)
 func (m *Middleware) OptionalAccessToken() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var tokenString string
+
+		// Try Authorization header first, then fall back to httpOnly cookie
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		if authHeader != "" {
+			headerParts := strings.Split(authHeader, " ")
+			if len(headerParts) == 2 && headerParts[0] == "Bearer" {
+				tokenString = headerParts[1]
+			}
+		}
+		if tokenString == "" {
+			if cookie, err := c.Cookie("access_token"); err == nil && cookie != "" {
+				tokenString = cookie
+			}
+		}
+		if tokenString == "" {
 			c.Set("userID", 0)
 			c.Next()
 			return
 		}
-
-		headerParts := strings.Split(authHeader, " ")
-		if len(headerParts) != 2 || headerParts[0] != "Bearer" {
-			c.Set("userID", 0)
-			c.Next()
-			return
-		}
-
-		tokenString := headerParts[1]
 		claims := &models.CustomClaims{}
 
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {

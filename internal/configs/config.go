@@ -96,11 +96,20 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+// requireEnv panics if env variable is missing or empty (for secrets)
+func requireEnv(key string) string {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		panic(fmt.Sprintf("FATAL: required env var %s is not set", key))
+	}
+	return v
+}
+
 // InitConfigs loads the configuration
 func InitConfigs() (*Config, error) {
 	// Читаем переменные для PostgreSQL
 	pgUser := getEnv("POSTGRES_USER", "postgres")
-	pgPass := getEnv("POSTGRES_PASSWORD", "postgres")
+	pgPass := requireEnv("POSTGRES_PASSWORD")
 	pgHost := getEnv("POSTGRES_HOST", "localhost") // В Docker будет "postgres"
 	pgPort := getEnv("POSTGRES_PORT", "5432")
 	pgDB := getEnv("POSTGRES_DB", "shb")
@@ -120,12 +129,12 @@ func InitConfigs() (*Config, error) {
 			Env:  getEnv("APP_ENV", "local"),
 		},
 		Security: SecurityConfig{
-			JWTSecretKey:            getEnv("JWT_SECRET_KEY", "super_secret_dev_key"),
+			JWTSecretKey:            requireEnv("JWT_SECRET_KEY"),
 			AccessTokenTTL:          15 * time.Minute,
-			AccessTokenSecret:       getEnv("ACCESS_TOKEN_SECRET", "super_secret_dev_key"),
+			AccessTokenSecret:       requireEnv("ACCESS_TOKEN_SECRET"),
 			RefreshTokenTTL:         720 * time.Hour,
-			RefreshTokenSecret:      getEnv("REFRESH_TOKEN_SECRET", "super_secret_dev_key"),
-			OTPLength:               4,
+			RefreshTokenSecret:      requireEnv("REFRESH_TOKEN_SECRET"),
+			OTPLength:               6,
 			OTPDuration:             5 * time.Minute,
 			OTPMaxAttempts:          3,
 			OTPMaxAttemptsBlockTime: 30 * time.Minute,
@@ -161,8 +170,8 @@ func InitConfigs() (*Config, error) {
 		},
 		Service: ServiceConfig{
 			Security: SecurityConfig{
-				JWTSecretKey:            getEnv("JWT_SECRET_KEY", "super_secret"), // Нужно сервису для генерации ссылок или валидации
-				OTPLength:               4, // <--- ВОТ ЭТОГО НЕ ХВАТАЛО!
+				JWTSecretKey:            requireEnv("JWT_SECRET_KEY"),
+				OTPLength:               6,
 				OTPDuration:             5 * time.Minute,
 				OTPMaxAttempts:          3,
 				OTPMaxAttemptsBlockTime: 30 * time.Minute,

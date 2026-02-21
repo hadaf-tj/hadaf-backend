@@ -68,7 +68,7 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 				Str("method", mthd).
 				Msg("failed to send otp")
 		} else {
-			s.logger.Info().Str("receiver", rcv).Str("method", mthd).Str("code", code).Msg("OTP sent (check logs)")
+			s.logger.Info().Str("receiver", rcv).Str("method", mthd).Msg("OTP sent successfully")
 		}
 	}(receiver, otpCode, method)
 
@@ -114,7 +114,7 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 	}
 
 	// 4. Выдаем токены
-	access, refresh, err := s.token.IssueTokens(ctx, user.ID)
+	access, refresh, err := s.token.IssueTokens(ctx, user.ID, user.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.To
 		return nil, myerrors.NewUnauthorizedErr("Неверный пароль либо логин")
 	}
 
-	access, refresh, err := s.token.IssueTokens(ctx, user.ID)
+	access, refresh, err := s.token.IssueTokens(ctx, user.ID, user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("issue tokens err: %w", err)
 	}

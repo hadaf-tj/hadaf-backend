@@ -36,6 +36,7 @@ type IService interface {
 	CreateNeed(ctx context.Context, need *models.Need) (int, error)
 	UpdateNeed(ctx context.Context, n *models.Need) error
 	DeleteNeed(ctx context.Context, id int) error
+	GetNeedByID(ctx context.Context, id int) (*models.Need, error)
 	GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error)
 
 	CreateBooking(ctx context.Context, userID, needID int, quantity float64, note string) (int, error)
@@ -83,15 +84,18 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 	v1 := router.Group("/api/v1")
 	{
-		v1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
-			ginSwagger.URL("/api/v1/docs/swagger.yaml"),
-		))
-		v1.Static("/docs", "./docs")
+		if h.cfg.App.Env != "production" {
+			v1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
+				ginSwagger.URL("/api/v1/docs/swagger.yaml"),
+			))
+			v1.Static("/docs", "./docs")
+		}
 
 		v1.POST("/send_otp", h.sendOTP)
 		v1.POST("/confirm_otp", h.confirmOTP)
 		v1.POST("/login", h.login)
 		v1.POST("/register", h.register)
+		v1.POST("/logout", h.logout)
 
 		// Исправленный вызов middleware
 		v1.GET("/check_access", h.middleware.AuthMiddleware(), func(c *gin.Context) {
@@ -102,7 +106,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 		v1.GET("/institutions", h.getAllInstitutions)
 		v1.GET("/institutions/:id", h.getInstitutionByID)
-		v1.POST("/institutions", h.createInstitution)
+		v1.POST("/institutions", h.middleware.AuthMiddleware(models.RoleSuperAdmin), h.createInstitution)
 
 		v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
 
@@ -140,7 +144,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 		// Events routes - волонтёрские события
 		v1.GET("/events", h.middleware.OptionalAccessToken(), h.getAllEvents)
-		v1.POST("/events", h.middleware.AuthMiddleware(), h.createEvent)
+		v1.POST("/events", h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin), h.createEvent)
 		v1.POST("/events/:id/join", h.middleware.AuthMiddleware(), h.joinEvent)
 		v1.DELETE("/events/:id/leave", h.middleware.AuthMiddleware(), h.leaveEvent)
 	}
@@ -204,9 +208,17 @@ func (h *Handler) RequestID() gin.HandlerFunc {
 }
 
 func (h *Handler) CORSMiddleware() gin.HandlerFunc {
+	allowedOrigins := map[string]bool{
+		"http://89.167.77.120": true,
+		"http://localhost:3000": true,
+	}
+
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		origin := c.Request.Header.Get("Origin")
+		if allowedOrigins[origin] {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, x-request-id")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"shb/internal/models"
 	"shb/pkg/myerrors"
 	"strconv"
 
@@ -144,6 +145,21 @@ func (h *Handler) getInstitutionBookings(c *gin.Context) {
 	if err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid institution ID"))
 		return
+	}
+
+	// H3: Ownership check — employee can only view bookings of their own institution
+	role, _ := c.Get("role")
+	if role.(string) != models.RoleSuperAdmin {
+		userID, _ := c.Get("userID")
+		user, err := h.service.GetUserByID(ctx, userID.(int))
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+		if user.InstitutionID == nil || *user.InstitutionID != institutionID {
+			h.handleError(c, myerrors.NewForbiddenErr("you can only view bookings of your own institution"))
+			return
+		}
 	}
 
 	bookings, err := h.service.GetBookingsByInstitution(ctx, institutionID)

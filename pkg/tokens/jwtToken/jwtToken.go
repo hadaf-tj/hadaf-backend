@@ -25,13 +25,8 @@ func NewJwtTokenIssuer(secretKey string, accessTTL, refreshTTL time.Duration) *J
 	}
 }
 
-func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, id int) (string, string, error) {
+func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, id int, role string) (string, string, error) {
 	now := time.Now().UTC()
-
-	// ВАЖНО: Middleware ожидает поле "role" в claims, иначе не пустит к защищенным роутам.
-	// Пока хардкодим "employee", так как у нас сейчас все - сотрудники. 
-	// В идеале метод должен принимать role аргументом.
-	role := models.RoleEmployee 
 
 	accessClaims := models.CustomClaims{
 		UserID: id,

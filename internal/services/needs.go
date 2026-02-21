@@ -98,3 +98,7 @@ func (s *Service) DeleteNeed(ctx context.Context, id int) error {
 func (s *Service) GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error) {
 	return s.repo.GetNeedsByInstitution(ctx, filter, institutionID)
 }
+
+func (s *Service) GetNeedByID(ctx context.Context, id int) (*models.Need, error) {
+	return s.repo.GetNeedByID(ctx, id)
+}
