@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/smtp"
 	"os"
+	"strings"
 )
 
 type ISender interface {
@@ -35,21 +36,32 @@ func (s *SmtpSender) SendOTP(receiver string, code string) error {
 	auth := smtp.PlainAuth("", s.email, s.password, s.host)
 	addr := s.host + ":" + s.port
 
-	subject := "Subject: Ваш код подтверждения Hadaf\n"
-	mime := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
+	// 1. Очищаем email от случайных пробелов и скрытых символов
+	cleanReceiver := strings.TrimSpace(receiver)
+
+	// 2. Строго по стандарту: используем \r\n и добавляем обязательные To и From
+	headers := "From: " + s.email + "\r\n" +
+		"To: " + cleanReceiver + "\r\n" +
+		"Subject: Ваш код подтверждения Hadaf\r\n" +
+		"MIME-version: 1.0\r\n" +
+		"Content-Type: text/html; charset=\"UTF-8\"\r\n" +
+		"\r\n" // <--- Эта пустая строка критически важна! Она отделяет заголовки от тела
+
 	body := fmt.Sprintf(`
-		<html>
-		<body>
-			<h2>Здравствуйте!</h2>
-			<p>Ваш код подтверждения: <b>%s</b></p>
-			<p>Никому не сообщайте этот код.</p>
-		</body>
-		</html>
-	`, code)
+        <html>
+        <body>
+            <h2>Здравствуйте!</h2>
+            <p>Ваш код подтверждения: <b>%s</b></p>
+            <p>Никому не сообщайте этот код.</p>
+        </body>
+        </html>
+    `, code)
 
-	msg := []byte(subject + mime + body)
+	// Склеиваем правильные заголовки и тело
+	msg := []byte(headers + body)
 
-	if err := smtp.SendMail(addr, auth, s.email, []string{receiver}, msg); err != nil {
+	// 3. Отправляем на очищенный адрес
+	if err := smtp.SendMail(addr, auth, s.email, []string{cleanReceiver}, msg); err != nil {
 		return fmt.Errorf("smtp send error: %w", err)
 	}
 
