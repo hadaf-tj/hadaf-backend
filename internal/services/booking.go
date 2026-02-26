@@ -230,3 +230,42 @@ func (s *Service) CompleteBooking(ctx context.Context, bookingID, institutionUse
 
 	return nil
 }
+
+func (s *Service) CancelMyBooking(ctx context.Context, bookingID int, userID int) error {
+	booking, err := s.repo.GetBookingByID(ctx, bookingID)
+	if err != nil {
+		return fmt.Errorf("get booking: %w", err)
+	}
+	if booking.UserID != userID {
+		return myerrors.NewForbiddenErr("you can only cancel your own bookings")
+	}
+	if booking.Status != models.BookingStatusPending {
+		return myerrors.NewBadRequestErr("only pending bookings can be cancelled")
+	}
+	err = s.repo.UpdateBookingStatus(ctx, bookingID, "cancelled")
+	if err != nil {
+		return fmt.Errorf("update booking status: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) UpdateMyBooking(ctx context.Context, bookingID int, userID int, qty float64) error {
+	booking, err := s.repo.GetBookingByID(ctx, bookingID)
+	if err != nil {
+		return fmt.Errorf("get booking: %w", err)
+	}
+	if booking.UserID != userID {
+		return myerrors.NewForbiddenErr("you can only modify your own bookings")
+	}
+	if booking.Status != models.BookingStatusPending {
+		return myerrors.NewBadRequestErr("only pending bookings can be modified")
+	}
+	if qty <= 0 {
+		return myerrors.NewBadRequestErr("quantity must be greater than 0")
+	}
+	err = s.repo.UpdateBookingQuantity(ctx, bookingID, qty)
+	if err != nil {
+		return fmt.Errorf("update booking quantity: %w", err)
+	}
+	return nil
+}

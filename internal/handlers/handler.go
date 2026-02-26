@@ -45,6 +45,8 @@ type IService interface {
 	CompleteBooking(ctx context.Context, bookingID, institutionUserID int) error
 	GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error)
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
+	CancelMyBooking(ctx context.Context, bookingID int, userID int) error
+	UpdateMyBooking(ctx context.Context, bookingID int, userID int, qty float64) error
 
 	// --- Event Methods ---
 	CreateEvent(ctx context.Context, e *models.Event) (int, error)
@@ -124,6 +126,8 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		{
 			bookings.POST("", h.createBooking)
 			bookings.GET("/my", h.getMyBookings)
+			bookings.PUT("/my/:id/cancel", h.cancelMyBooking)
+			bookings.PUT("/my/:id", h.updateMyBooking)
 		}
 
 		// Booking management (Protected) - управление откликами

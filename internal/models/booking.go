@@ -14,6 +14,11 @@ type Booking struct {
 	UpdatedAt *time.Time `json:"updated_at"`
 	IsDeleted bool       `json:"is_deleted"`
 	DeletedAt *time.Time `json:"deleted_at"`
+
+	// Enriched fields for frontend
+	NeedName        string `json:"need_name"`
+	InstitutionName string `json:"institution_name"`
+	InstitutionID   int    `json:"institution_id"`
 }
 
 // Константы статусов бронирования

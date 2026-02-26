@@ -81,10 +81,13 @@ func (r *Repository) GetBookingsByNeed(ctx context.Context, needID int) ([]*mode
 
 func (r *Repository) GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error) {
 	query := `
-		SELECT id, user_id, need_id, quantity, note, status, created_at, updated_at, is_deleted, deleted_at
-		FROM bookings
-		WHERE user_id = $1 AND is_deleted = false
-		ORDER BY created_at DESC
+		SELECT b.id, b.user_id, b.need_id, b.quantity, b.note, b.status, b.created_at, b.updated_at, b.is_deleted, b.deleted_at,
+		       n.name, i.name, i.id
+		FROM bookings b
+		JOIN needs n ON b.need_id = n.id
+		JOIN institutions i ON n.institution_id = i.id
+		WHERE b.user_id = $1 AND b.is_deleted = false
+		ORDER BY b.created_at DESC
 	`
 	rows, err := r.postgres.Query(ctx, query, userID)
 	if err != nil {
@@ -95,18 +98,45 @@ func (r *Repository) GetBookingsByUser(ctx context.Context, userID int) ([]*mode
 	var bookings []*models.Booking
 	for rows.Next() {
 		var b dbBooking
+		var needName, instName string
+		var instID int
 		if err := rows.Scan(
 			&b.ID, &b.UserID, &b.NeedID, &b.Quantity, &b.Note, &b.Status,
 			&b.CreatedAt, &b.UpdatedAt, &b.IsDeleted, &b.DeletedAt,
+			&needName, &instName, &instID,
 		); err != nil {
 			return nil, fmt.Errorf("scan booking: %w", err)
 		}
-		bookings = append(bookings, b.ToDomain())
+		mb := b.ToDomain()
+		mb.NeedName = needName
+		mb.InstitutionName = instName
+		mb.InstitutionID = instID
+		
+		// Map the note field directly to PlannedDate if it exists, since the frontend uses note for planned_date
+		mb.Note = b.Note
+		
+		bookings = append(bookings, mb)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 	return bookings, nil
+}
+
+func (r *Repository) UpdateBookingQuantity(ctx context.Context, bookingID int, qty float64) error {
+	query := `
+		UPDATE bookings 
+		SET quantity = $1, updated_at = NOW()
+		WHERE id = $2 AND is_deleted = false AND status = 'pending'
+	`
+	result, err := r.postgres.Exec(ctx, query, qty, bookingID)
+	if err != nil {
+		return fmt.Errorf("update booking qty: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("booking not found or not pending")
+	}
+	return nil
 }
 
 func (r *Repository) UpdateBookingStatus(ctx context.Context, bookingID int, status string) error {

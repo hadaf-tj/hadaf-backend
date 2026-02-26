@@ -195,3 +195,57 @@ func (h *Handler) getMyBookings(c *gin.Context) {
 
 	h.success(c, bookings)
 }
+
+func (h *Handler) cancelMyBooking(c *gin.Context) {
+	ctx := c.Request.Context()
+	userID, exists := c.Get("userID")
+	if !exists {
+		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
+		return
+	}
+
+	idStr := c.Param("id")
+	bookingID, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid booking ID"))
+		return
+	}
+
+	if err := h.service.CancelMyBooking(ctx, bookingID, userID.(int)); err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	h.success(c, "booking cancelled")
+}
+
+func (h *Handler) updateMyBooking(c *gin.Context) {
+	ctx := c.Request.Context()
+	userID, exists := c.Get("userID")
+	if !exists {
+		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
+		return
+	}
+
+	idStr := c.Param("id")
+	bookingID, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid booking ID"))
+		return
+	}
+
+	var input struct {
+		Quantity float64 `json:"quantity" binding:"required,gt=0"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid input"))
+		return
+	}
+
+	if err := h.service.UpdateMyBooking(ctx, bookingID, userID.(int), input.Quantity); err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	h.success(c, "booking updated")
+}

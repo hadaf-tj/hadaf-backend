@@ -51,6 +51,7 @@ type IRepository interface {
 	GetBookingsByNeed(ctx context.Context, needID int) ([]*models.Booking, error)
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
 	UpdateBookingStatus(ctx context.Context, bookingID int, status string) error
+	UpdateBookingQuantity(ctx context.Context, bookingID int, qty float64) error
 	IncrementReceivedQty(ctx context.Context, needID int, qty float64) error
 	GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error)
 
