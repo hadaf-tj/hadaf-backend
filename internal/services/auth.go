@@ -7,6 +7,7 @@ import (
 	"shb/internal/models"
 	"shb/pkg/myerrors"
 	"shb/pkg/utils"
+	"strconv"
 	"strings" // Нужно для проверки @
 	"time"
 
@@ -35,12 +36,13 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 		IsVerified: false,
 	}
 
-	if err = s.repo.SaveOTP(ctx, otp); err != nil {
+	otpID, err := s.repo.SaveOTP(ctx, otp)
+	if err != nil {
 		return 0, err
 	}
 
 	// Асинхронная отправка
-	go func(rcv, code, mthd string) {
+	go func(rcv, code, mthd string, id int) {
 		var err error
 		if mthd == "email" {
 			// Отправка Email
@@ -59,7 +61,8 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 			err = s.email.SendEmail(context.Background(), rcv, subject, body)
 		} else {
 			// Отправка SMS
-			err = s.sms.SendSms(ctx, rcv, code)
+			txnID := strconv.Itoa(id)
+			err = s.sms.SendSms(context.Background(), rcv, code, txnID)
 		}
 
 		if err != nil {
@@ -70,7 +73,7 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 		} else {
 			s.logger.Info().Str("receiver", rcv).Str("method", mthd).Msg("OTP sent successfully")
 		}
-	}(receiver, otpCode, method)
+	}(receiver, otpCode, method, otpID)
 
 	return int(s.cfg.Security.OTPDuration.Seconds()), nil
 }
@@ -123,7 +126,6 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 		RefreshToken: refresh,
 	}, nil
 }
-
 
 func (s *Service) ensureUserExists(ctx context.Context, phone string) (*models.User, error) {
 	user, err := s.repo.GetUserByPhone(ctx, phone)

@@ -12,12 +12,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (r *Repository) SaveOTP(ctx context.Context, o *models.OTP) error {
+func (r *Repository) SaveOTP(ctx context.Context, o *models.OTP) (int, error) {
 	const query = `
     INSERT INTO otp (receiver, method, otp_code, sent_at, expires_at, attempt, is_verified)
-    VALUES ($1, $2, $3, $4, $5, $6, $7);
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING id;
 `
-	_, err := r.postgres.Exec(ctx, query,
+	var id int
+	err := r.postgres.QueryRow(ctx, query,
 		o.Receiver,
 		o.Method,
 		o.OTPCode,
@@ -25,13 +27,13 @@ func (r *Repository) SaveOTP(ctx context.Context, o *models.OTP) error {
 		o.ExpiresAt,
 		o.Attempt,
 		o.IsVerified,
-	)
+	).Scan(&id)
 
 	if err != nil {
-		return fmt.Errorf("failed to save otp: %w", err)
+		return 0, fmt.Errorf("failed to save otp: %w", err)
 	}
 
-	return nil
+	return id, nil
 }
 
 func (r *Repository) GetOTP(ctx context.Context, receiver string) (*models.OTP, error) {

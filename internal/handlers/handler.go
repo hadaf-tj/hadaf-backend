@@ -8,6 +8,7 @@ import (
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
 	"shb/pkg/constants"
+	"shb/pkg/external/sms/smsProvider"
 	"shb/pkg/middlewares"
 	"shb/pkg/myerrors"
 
@@ -57,6 +58,9 @@ type IService interface {
 
 	// --- Stats Methods ---
 	GetPublicStats(ctx context.Context) (map[string]int, error)
+
+	// --- SMS Methods ---
+	CheckSMSBalance(ctx context.Context) (*smsProvider.BalanceResult, error)
 }
 
 type Handler struct {
@@ -105,6 +109,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		})
 		v1.GET("/me", h.middleware.AuthMiddleware(), h.getMe)
 		v1.GET("/stats", h.getStats)
+		v1.GET("/sms/balance", h.middleware.AuthMiddleware(), h.getSMSBalance)
 
 		v1.GET("/institutions", h.getAllInstitutions)
 		v1.GET("/institutions/:id", h.getInstitutionByID)
@@ -213,7 +218,7 @@ func (h *Handler) RequestID() gin.HandlerFunc {
 
 func (h *Handler) CORSMiddleware() gin.HandlerFunc {
 	allowedOrigins := map[string]bool{
-		"http://89.167.77.120": true,
+		"http://89.167.77.120":  true,
 		"http://localhost:3000": true,
 	}
 
