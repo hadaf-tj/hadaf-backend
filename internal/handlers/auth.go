@@ -172,8 +172,8 @@ func (h *Handler) register(c *gin.Context) {
 	}
 
 	// M4: Validate role — only allow safe values
-	if in.Role != "volunteer" && in.Role != "employee" && in.Role != "donor" {
-		h.handleError(c, myerrors.NewBadRequestErr("invalid role: must be volunteer, employee, or donor"))
+	if in.Role != "volunteer" && in.Role != "employee" {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid role: must be volunteer or employee"))
 		return
 	}
 

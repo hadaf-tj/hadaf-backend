@@ -23,12 +23,12 @@ CREATE TABLE IF NOT EXISTS institutions (
 -- Таблица пользователей
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    institution_id INT REFERENCES institutions(id) ON DELETE SET NULL, -- NULL для Админов и Доноров, ID для Работников
+    institution_id INT REFERENCES institutions(id) ON DELETE SET NULL, -- NULL для Админов и Волонтёров, ID для Работников
     full_name VARCHAR(150),
     phone VARCHAR(20) UNIQUE,
     email VARCHAR(150) UNIQUE,
     password TEXT,                          -- Хеш пароля
-    role VARCHAR(50) NOT NULL DEFAULT 'donor', -- 'super_admin', 'institution', 'donor'
+    role VARCHAR(50) NOT NULL DEFAULT 'volunteer', -- 'super_admin', 'employee', 'volunteer'
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,

@@ -6,7 +6,7 @@ import "time"
 const (
 	RoleSuperAdmin = "super_admin"
 	RoleEmployee   = "employee"
-	RoleDonor      = "donor"
+	RoleVolunteer  = "volunteer"
 )
 
 type User struct {
