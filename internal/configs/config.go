@@ -51,6 +51,8 @@ type LoggerConfig struct {
 type SMSConfig struct {
 	APIKey     string
 	SenderName string
+	Login      string
+	BaseURL    string
 }
 
 type SMTPConfig struct {
@@ -152,6 +154,8 @@ func InitConfigs() (*Config, error) {
 		SMS: SMSConfig{
 			APIKey:     getEnv("SMS_API_KEY", "mock"),
 			SenderName: getEnv("SMS_SENDER_NAME", "Payvand"),
+			Login:      getEnv("SMS_LOGIN", ""),
+			BaseURL:    getEnv("SMS_BASE_URL", "https://api.osonsms.com"),
 		},
 		SMTP: SMTPConfig{
 			Host:      getEnv("SMTP_HOST", "smtp.gmail.com"),

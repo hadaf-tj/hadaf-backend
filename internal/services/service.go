@@ -25,7 +25,7 @@ type IRepository interface {
 	ActivateUser(ctx context.Context, id int) error
 
 	// SaveOTP сохраняет новый OTP-код в базу данных.
-	SaveOTP(ctx context.Context, o *models.OTP) error
+	SaveOTP(ctx context.Context, o *models.OTP) (int, error)
 	// GetOTP получает последний активный и неподтверждённый OTP-код по номеру телефона.
 	GetOTP(ctx context.Context, phone string) (*models.OTP, error)
 	// MarkOTPAsVerified отмечает OTP-код как подтверждённый.

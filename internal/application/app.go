@@ -73,7 +73,9 @@ func NewApplication() *App {
 	sms := smsProvider.NewSMSProvider(smsProvider.SMSConfig{
 		APIKey:     cfg.SMS.APIKey,
 		SenderName: cfg.SMS.SenderName,
-	})
+		Login:      cfg.SMS.Login,
+		BaseURL:    cfg.SMS.BaseURL,
+	}, &log.Logger)
 
 	// 4. Initialize SMTP Email Adapter
 	emailAdapter := smtpEmail.NewSMTPEmail(&cfg.SMTP)
