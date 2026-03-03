@@ -218,7 +218,8 @@ func (h *Handler) RequestID() gin.HandlerFunc {
 
 func (h *Handler) CORSMiddleware() gin.HandlerFunc {
 	allowedOrigins := map[string]bool{
-		"http://89.167.77.120":  true,
+		"https://hadaf.tj":      true,
+		"https://www.hadaf.tj":  true,
 		"http://localhost:3000": true,
 	}
 
