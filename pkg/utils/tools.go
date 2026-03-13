@@ -3,6 +3,8 @@ package utils
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"regexp"
 	"shb/pkg/constants"
@@ -63,4 +65,9 @@ var digitsRegexp = regexp.MustCompile(`^\d+$`)
 
 func isDigits(s string) bool {
 	return digitsRegexp.MatchString(s)
+}
+
+func HashToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
 }

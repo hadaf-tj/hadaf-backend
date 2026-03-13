@@ -127,7 +127,8 @@ func (r *Repository) CreateInstitution(ctx context.Context, i *models.Institutio
 // GetInstitutionByID получает учреждение по ID
 func (r *Repository) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
 	query := `
-        SELECT id, name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude, created_at, updated_at, is_deleted, deleted_at
+        SELECT id, name, type, city, region, address, phone, email, description, activity_hours,
+               latitude, longitude, created_at, updated_at, is_deleted, deleted_at
         FROM institutions
         WHERE id = $1
     `

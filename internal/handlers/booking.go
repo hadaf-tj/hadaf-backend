@@ -11,6 +11,13 @@ import (
 func (h *Handler) createBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	// Security: employees cannot create bookings (they manage their own institution)
+	role, _ := c.Get("role")
+	if role.(string) == models.RoleEmployee {
+		h.handleError(c, myerrors.NewForbiddenErr("institution employees cannot create bookings"))
+		return
+	}
+
 	// Extract user ID from JWT token (set by AuthMiddleware)
 	userID, exists := c.Get("userID")
 	if !exists {

@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"shb/internal/models"
 	"shb/pkg/myerrors"
 	"shb/pkg/utils"
@@ -20,20 +21,20 @@ func (h *Handler) setTokenCookies(c *gin.Context, tokens *models.TokenResponse) 
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "access_token",
 		Value:    tokens.AccessToken,
-		Path:     "/api",
+		Path:     "/",
 		MaxAge:   accessMaxAge,
 		HttpOnly: true,
 		Secure:   isProduction,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    tokens.RefreshToken,
-		Path:     "/api",
+		Path:     "/",
 		MaxAge:   refreshMaxAge,
 		HttpOnly: true,
 		Secure:   isProduction,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 }
 
@@ -142,11 +143,25 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 
 	logger.Debug().Str("receiver", in.Receiver).Msg("OTP confirmed successfully")
 	h.setTokenCookies(c, response)
-	h.success(c, response)
+	h.success(c, nil) // Don't send tokens in body
 }
 
 func (h *Handler) register(c *gin.Context) {
 	ctx := c.Request.Context()
+
+	// H5: Registration Rate Limit (IP-based) to prevent automated bot storm
+	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
+	if !isLocal {
+		ipKey := fmt.Sprintf("register_ip:%s", c.ClientIP())
+		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600) // Max 3 registrations per hour per IP
+		if err != nil {
+			h.logger.Error().Err(err).Msg("rate limiter error for register")
+		}
+		if !allowed {
+			h.handleError(c, myerrors.NewTooManyRequestsErr("Слишком много попыток регистрации с вашего адреса. Попробуйте через час."))
+			return
+		}
+	}
 
 	// Структура запроса
 	in := struct {
@@ -207,15 +222,19 @@ func (h *Handler) login(c *gin.Context) {
 		return
 	}
 
-	// H4: Rate limit login — max 5 attempts per 15 minutes per email
-	loginKey := fmt.Sprintf("login:%s", in.Email)
-	allowed, err := h.limiter.Allow(ctx, loginKey, 5, 900) // 900 seconds = 15 min
-	if err != nil {
-		logger.Error().Err(err).Msg("rate limiter error")
-	}
-	if !allowed {
-		h.handleError(c, myerrors.NewTooManyRequestsErr("too many login attempts, try again later"))
-		return
+	// Запускаем лимитер ТОЛЬКО если мы не на локалке
+	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
+	if !isLocal {
+		// H4: Rate limit login — max 5 attempts per 15 minutes per email
+		loginKey := fmt.Sprintf("login:%s", in.Email)
+		allowed, err := h.limiter.Allow(ctx, loginKey, 5, 900) // 900 seconds = 15 min
+		if err != nil {
+			logger.Error().Err(err).Msg("rate limiter error")
+		}
+		if !allowed {
+			h.handleError(c, myerrors.NewTooManyRequestsErr("Слишком много попыток. Повторите позже"))
+			return
+		}
 	}
 
 	response, err := h.service.Login(ctx, in.Email, in.Password)
@@ -227,30 +246,79 @@ func (h *Handler) login(c *gin.Context) {
 
 	logger.Debug().Str("email", in.Email).Msg("login successfully")
 	h.setTokenCookies(c, response)
-	h.success(c, response)
+	h.success(c, nil) // Don't send tokens in body
 }
 
-// logout clears httpOnly auth cookies
+// refreshTokens handles refresh token rotation
+func (h *Handler) refreshTokens(c *gin.Context) {
+	ctx := c.Request.Context()
+	logger := h.logger.With().Ctx(ctx).Str("handler", "refreshTokens").Logger()
+
+	// Rate limit refresh attempts to prevent abuse
+	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
+	if !isLocal {
+		// Use IP for refresh limiting to avoid hammered endpoints
+		ipKey := fmt.Sprintf("refresh_ip:%s", c.ClientIP())
+		allowed, err := h.limiter.Allow(ctx, ipKey, 10, 60) // Max 10 refreshes per minute per IP
+		if err != nil {
+			logger.Error().Err(err).Msg("rate limiter error for refresh")
+		}
+		if !allowed {
+			h.handleError(c, myerrors.NewTooManyRequestsErr("Слишком частое обновление токенов. Подождите минуту."))
+			return
+		}
+	}
+
+	// Get refresh token from cookie
+	cookie, err := c.Request.Cookie("refresh_token")
+	if err != nil {
+		logger.Warn().Msg("refresh token cookie missing")
+		h.handleError(c, myerrors.NewUnauthorizedErr("refresh token missing"))
+		return
+	}
+
+	response, err := h.service.RefreshTokens(ctx, cookie.Value)
+	if err != nil {
+		logger.Error().Err(err).Msg("service.RefreshTokens error")
+		h.handleError(c, err)
+		return
+	}
+
+	logger.Debug().Msg("tokens refreshed successfully")
+	h.setTokenCookies(c, response)
+	h.success(c, nil) // Don't send tokens in body
+}
+
+// logout clears httpOnly auth cookies and revokes refresh tokens in DB
 func (h *Handler) logout(c *gin.Context) {
+	ctx := c.Request.Context()
+	userID, exists := c.Get("userID")
+	if exists {
+		// Revoke all tokens for this user
+		if err := h.service.RevokeAllUserRefreshTokens(ctx, userID.(int)); err != nil {
+			h.logger.Error().Err(err).Int("userID", userID.(int)).Msg("failed to revoke tokens on logout")
+		}
+	}
+
 	isProduction := h.cfg.App.Env == "production"
 
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "access_token",
 		Value:    "",
-		Path:     "/api",
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   isProduction,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/api",
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   isProduction,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	h.success(c, gin.H{"message": "logged out"})
@@ -277,4 +345,3 @@ func (h *Handler) getMe(c *gin.Context) {
 
 	h.success(c, user)
 }
-

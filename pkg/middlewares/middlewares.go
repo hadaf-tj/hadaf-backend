@@ -73,9 +73,15 @@ func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 			}
 		}
 
-		c.Set("userID", claims.UserID)
+		// Verification of moderation for employees
+		if claims.Role == models.RoleEmployee && !claims.IsApproved {
+			c.AbortWithStatusJSON(http.StatusForbidden, myerrors.NewForbiddenErr("Ваш аккаунт ожидает подтверждения администратором"))
+			return
+		}
 
+		c.Set("userID", claims.UserID)
 		c.Set("role", claims.Role)
+		c.Set("isApproved", claims.IsApproved)
 		c.Next()
 	}
 }
@@ -118,8 +124,17 @@ func (m *Middleware) OptionalAccessToken() gin.HandlerFunc {
 			return
 		}
 
+		// Verification of moderation for employees (even in optional)
+		if claims.Role == models.RoleEmployee && !claims.IsApproved {
+			// for optional access token we just act as if they are not logged in
+			c.Set("userID", 0)
+			c.Next()
+			return
+		}
+
 		c.Set("userID", claims.UserID)
 		c.Set("role", claims.Role)
+		c.Set("isApproved", claims.IsApproved)
 		c.Next()
 	}
 }

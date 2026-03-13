@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
     is_deleted BOOLEAN DEFAULT FALSE,
-    deleted_at TIMESTAMPTZ DEFAULT NULL
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    is_approved BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Категории нужд (Продукты, Гигиена, Одежда...)
@@ -105,6 +106,9 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE INDEX IF NOT EXISTS idx_bookings_need_id ON bookings(need_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_user_need_active_uniq
+  ON bookings(user_id, need_id)
+  WHERE status NOT IN ('cancelled', 'rejected') AND is_deleted = false;
 
 -- Таблица волонтёрских событий
 CREATE TABLE IF NOT EXISTS events (
@@ -132,3 +136,16 @@ CREATE TABLE IF NOT EXISTS event_participants (
 CREATE INDEX IF NOT EXISTS idx_events_event_date ON events(event_date);
 CREATE INDEX IF NOT EXISTS idx_events_institution_id ON events(institution_id);
 CREATE INDEX IF NOT EXISTS idx_events_creator_id ON events(creator_id);
+-- Таблица для хранения и ротации refresh-токенов
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id           SERIAL PRIMARY KEY,
+    user_id      INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash   TEXT NOT NULL UNIQUE,
+    expires_at   TIMESTAMPTZ NOT NULL,
+    is_revoked   BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+
+

@@ -61,6 +61,10 @@ type IService interface {
 
 	// --- SMS Methods ---
 	CheckSMSBalance(ctx context.Context) (*smsProvider.BalanceResult, error)
+
+	// --- Auth/Token Methods ---
+	RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenResponse, error)
+	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
 }
 
 type Handler struct {
@@ -101,7 +105,8 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		v1.POST("/confirm_otp", h.confirmOTP)
 		v1.POST("/login", h.login)
 		v1.POST("/register", h.register)
-		v1.POST("/logout", h.logout)
+		v1.POST("/logout", h.middleware.AuthMiddleware(), h.logout)
+		v1.POST("/refresh", h.refreshTokens)
 
 		// Исправленный вызов middleware
 		v1.GET("/check_access", h.middleware.AuthMiddleware(), func(c *gin.Context) {
@@ -185,6 +190,7 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 	unprocessable := &myerrors.UnprocessableErr{}
 	unauth := &myerrors.UnauthorizedErr{}
 	manyReq := &myerrors.TooManyRequestsErr{}
+	conflict := &myerrors.ConflictErr{}
 
 	switch {
 	case errors.As(err, unprocessable):
@@ -197,6 +203,8 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 		c.JSON(http.StatusUnauthorized, unauth)
 	case errors.As(err, manyReq):
 		c.JSON(http.StatusTooManyRequests, manyReq)
+	case errors.As(err, conflict):
+		c.JSON(http.StatusConflict, conflict)
 	default:
 		c.JSON(http.StatusInternalServerError, myerrors.InternalError())
 	}

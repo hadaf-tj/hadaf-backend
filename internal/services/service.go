@@ -10,6 +10,7 @@ import (
 	"shb/pkg/external/fs"
 	"shb/pkg/external/sms"
 	"shb/pkg/tokens"
+	"time"
 
 	"github.com/rs/zerolog"
 )
@@ -50,6 +51,7 @@ type IRepository interface {
 	GetBookingByID(ctx context.Context, id int) (*models.Booking, error)
 	GetBookingsByNeed(ctx context.Context, needID int) ([]*models.Booking, error)
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
+	GetActiveBookingByUserAndNeed(ctx context.Context, userID, needID int) (*models.Booking, error)
 	UpdateBookingStatus(ctx context.Context, bookingID int, status string) error
 	UpdateBookingQuantity(ctx context.Context, bookingID int, qty float64) error
 	IncrementReceivedQty(ctx context.Context, needID int, qty float64) error
@@ -66,6 +68,12 @@ type IRepository interface {
 	GetPublicStats(ctx context.Context) (map[string]int, error)
 
 	CreateNeedHistory(ctx context.Context, history *models.NeedsHistory) error
+
+	// --- Token Methods ---
+	SaveRefreshToken(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error
+	GetRefreshToken(ctx context.Context, tokenHash string) (*models.RefreshToken, error)
+	RevokeRefreshToken(ctx context.Context, tokenHash string) error
+	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
 }
 type Service struct {
 	cfg    *configs.ServiceConfig // CHANGED: from configs.Service to configs.ServiceConfig
