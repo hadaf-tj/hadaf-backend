@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
     is_deleted BOOLEAN DEFAULT FALSE,
-    deleted_at TIMESTAMPTZ DEFAULT NULL
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    is_approved BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Категории нужд (Продукты, Гигиена, Одежда...)
@@ -147,7 +148,4 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 
--- Уникальный индекс: один пользователь — одна активная заявка на need
-CREATE UNIQUE INDEX IF NOT EXISTS bookings_user_need_active_uniq
-  ON bookings(user_id, need_id)
-  WHERE status NOT IN ('cancelled', 'rejected');
+

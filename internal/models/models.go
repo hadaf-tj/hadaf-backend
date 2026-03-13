@@ -15,8 +15,9 @@ type TokenResponse struct {
 }
 
 type CustomClaims struct {
-	UserID int    `json:"user_id"`
-	Role   string `json:"role"`
+	UserID     int    `json:"user_id"`
+	Role       string `json:"role"`
+	IsApproved bool   `json:"is_approved"`
 
 	jwt.RegisteredClaims
 }

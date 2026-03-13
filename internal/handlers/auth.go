@@ -276,20 +276,20 @@ func (h *Handler) logout(c *gin.Context) {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "access_token",
 		Value:    "",
-		Path:     "/api",
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   isProduction,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/api",
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   isProduction,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	h.success(c, gin.H{"message": "logged out"})
@@ -316,4 +316,3 @@ func (h *Handler) getMe(c *gin.Context) {
 
 	h.success(c, user)
 }
-

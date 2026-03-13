@@ -39,7 +39,7 @@ func (s *Service) checkPermission(ctx context.Context, institutionID int) error 
 	return nil
 }
 
-// CHANGED: Returns (int, error) now
+// CreateNeed creates a need — institution validation is done before this layer
 func (s *Service) CreateNeed(ctx context.Context, need *models.Need) (int, error) {
 	id, err := s.repo.CreateNeed(ctx, need)
 	if err != nil {

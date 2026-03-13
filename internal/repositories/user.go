@@ -15,14 +15,14 @@ import (
 // GetUserByPhone ищет пользователя по телефону
 func (r *Repository) GetUserByPhone(ctx context.Context, phone string) (*models.User, error) {
 	query := `
-		SELECT id, institution_id, full_name, phone, email, password, role, is_active, created_at, updated_at
+		SELECT id, institution_id, full_name, phone, email, password, role, is_active, is_approved, created_at, updated_at
 		FROM users
 		WHERE phone = $1
 	`
 	var u dbUser
 	err := r.postgres.QueryRow(ctx, query, phone).Scan(
 		&u.ID, &u.InstitutionID, &u.FullName, &u.Phone, &u.Email, &u.Password,
-		&u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
+		&u.Role, &u.IsActive, &u.IsApproved, &u.CreatedAt, &u.UpdatedAt,
 	)
 
 	if err != nil {
@@ -32,31 +32,20 @@ func (r *Repository) GetUserByPhone(ctx context.Context, phone string) (*models.
 		return nil, fmt.Errorf("get user by phone query: %w", err)
 	}
 
-	return &models.User{
-		ID:            u.ID,
-		InstitutionID: u.InstitutionID,
-		FullName:      u.FullName,
-		Phone:         u.Phone,
-		Email:         u.Email,
-		Password:      u.Password,
-		Role:          u.Role,
-		IsActive:      u.IsActive,
-		CreatedAt:     u.CreatedAt,
-		UpdatedAt:     u.UpdatedAt,
-	}, nil
+	return u.ToDomain(), nil
 }
 
 // GetUserByID ищет пользователя по ID
 func (r *Repository) GetUserByID(ctx context.Context, id int) (*models.User, error) {
 	query := `
-		SELECT id, institution_id, full_name, phone, email, password, role, is_active, created_at, updated_at
+		SELECT id, institution_id, full_name, phone, email, password, role, is_active, is_approved, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
 	var u dbUser
 	err := r.postgres.QueryRow(ctx, query, id).Scan(
 		&u.ID, &u.InstitutionID, &u.FullName, &u.Phone, &u.Email, &u.Password,
-		&u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
+		&u.Role, &u.IsActive, &u.IsApproved, &u.CreatedAt, &u.UpdatedAt,
 	)
 
 	if err != nil {
@@ -66,34 +55,18 @@ func (r *Repository) GetUserByID(ctx context.Context, id int) (*models.User, err
 		return nil, fmt.Errorf("get user by id query: %w", err)
 	}
 
-	return &models.User{
-		ID:            u.ID,
-		InstitutionID: u.InstitutionID,
-		FullName:      u.FullName,
-		Phone:         u.Phone,
-		Email:         u.Email,
-		Password:      u.Password,
-		Role:          u.Role,
-		IsActive:      u.IsActive,
-		CreatedAt:     u.CreatedAt,
-		UpdatedAt:     u.UpdatedAt,
-	}, nil
+	return u.ToDomain(), nil
 }
-
-
 
 // CreateUser создает нового пользователя
 func (r *Repository) CreateUser(ctx context.Context, u *models.User) error {
 	query := `
-		INSERT INTO users (institution_id, full_name, phone, email, password, role, is_active, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		INSERT INTO users (institution_id, full_name, phone, email, password, role, is_active, is_approved, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
 		RETURNING id, created_at, updated_at
 	`
-	// Если пароль пустой, ставим заглушку (для phone login flow), но для регистрации он будет заполнен
-	password := u.Password
-
 	err := r.postgres.QueryRow(ctx, query,
-		u.InstitutionID, u.FullName, u.Phone, u.Email, password, u.Role, u.IsActive,
+		u.InstitutionID, u.FullName, u.Phone, u.Email, u.Password, u.Role, u.IsActive, u.IsApproved,
 	).Scan(&u.ID, &u.CreatedAt, &u.UpdatedAt)
 
 	if err != nil {
@@ -101,6 +74,7 @@ func (r *Repository) CreateUser(ctx context.Context, u *models.User) error {
 	}
 	return nil
 }
+
 func (r *Repository) ActivateUser(ctx context.Context, id int) error {
 	query := `UPDATE users SET is_active = true, updated_at = NOW() WHERE id = $1`
 	_, err := r.postgres.Exec(ctx, query, id)
@@ -108,7 +82,7 @@ func (r *Repository) ActivateUser(ctx context.Context, id int) error {
 }
 
 func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	// 1. Нормализуем email (ОБЯЗАТЕЛЬНО)
+	// 1. Нормализуем email
 	email = strings.ToLower(strings.TrimSpace(email))
 
 	const query = `
@@ -121,6 +95,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*models.
 			password,
 			role,
 			is_active,
+			is_approved,
 			created_at
 		FROM users
 		WHERE email = $1
@@ -136,6 +111,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*models.
 		&u.Password,
 		&u.Role,
 		&u.IsActive,
+		&u.IsApproved,
 		&u.CreatedAt,
 	)
 
