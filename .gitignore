@@ -34,3 +34,8 @@ go.work.sum
 *.log
 *.DS_Store
 .agent/
+
+# Binaries
+main
+bcknd
+*.exe
