@@ -125,26 +125,28 @@ func InitConfigs() (*Config, error) {
 	// Если он берет конфиг отсюда - мы пока не передаем это явно в структуру,
 	// но наличие переменных в ENV (через docker-compose) должно спасти ситуацию.
 
+	security := SecurityConfig{
+		JWTSecretKey:            requireEnv("JWT_SECRET_KEY"),
+		AccessTokenTTL:          15 * time.Minute,
+		AccessTokenSecret:       requireEnv("ACCESS_TOKEN_SECRET"),
+		RefreshTokenTTL:         720 * time.Hour,
+		RefreshTokenSecret:      requireEnv("REFRESH_TOKEN_SECRET"),
+		OTPLength:               6,
+		OTPDuration:             5 * time.Minute,
+		OTPMaxAttempts:          3,
+		OTPMaxAttemptsBlockTime: 30 * time.Minute,
+		SendOTPAttempts:         3,
+		SendOTPBlockTime:        1 * time.Minute,
+	}
+
 	return &Config{
 		App: AppConfig{
 			Port: getEnv("APP_PORT", ":8000"),
 			Env:  getEnv("APP_ENV", "local"),
 		},
-		Security: SecurityConfig{
-			JWTSecretKey:            requireEnv("JWT_SECRET_KEY"),
-			AccessTokenTTL:          15 * time.Minute,
-			AccessTokenSecret:       requireEnv("ACCESS_TOKEN_SECRET"),
-			RefreshTokenTTL:         720 * time.Hour,
-			RefreshTokenSecret:      requireEnv("REFRESH_TOKEN_SECRET"),
-			OTPLength:               6,
-			OTPDuration:             5 * time.Minute,
-			OTPMaxAttempts:          3,
-			OTPMaxAttemptsBlockTime: 30 * time.Minute,
-			SendOTPAttempts:         3,
-			SendOTPBlockTime:        1 * time.Minute,
-		},
+		Security: security,
 		Database: DatabaseConfig{
-			DSN: dsn, // Теперь DSN формируется динамически!
+			DSN: dsn,
 		},
 		Logger: LoggerConfig{
 			Level:         getEnv("LOG_LEVEL", "debug"),
@@ -173,15 +175,7 @@ func InitConfigs() (*Config, error) {
 			ReadTimeout:  getEnv("APP_READ_TIMEOUT", "10s"),
 		},
 		Service: ServiceConfig{
-			Security: SecurityConfig{
-				JWTSecretKey:            requireEnv("JWT_SECRET_KEY"),
-				OTPLength:               6,
-				OTPDuration:             5 * time.Minute,
-				OTPMaxAttempts:          3,
-				OTPMaxAttemptsBlockTime: 30 * time.Minute,
-				SendOTPAttempts:         3,
-				SendOTPBlockTime:        1 * time.Minute,
-			},
+			Security: security,
 		},
 		Redis: RedisConfig{
 			Host:      getEnv("REDIS_HOST", "localhost"),

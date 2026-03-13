@@ -62,6 +62,15 @@ func (e TooManyRequestsErr) Error() string {
 	return fmt.Sprintf("message %s: %v", e.Message, e.err)
 }
 
+type ConflictErr struct {
+	Message string `json:"message"`
+	err     error
+}
+
+func (e ConflictErr) Error() string {
+	return fmt.Sprintf("message %s: %v", e.Message, e.err)
+}
+
 func NewBadRequestErr(message string) error {
 	return BadRequestErr{Message: message}
 }
@@ -80,4 +89,8 @@ func NewUnauthorizedErr(message string) error {
 
 func NewTooManyRequestsErr(message string) error {
 	return TooManyRequestsErr{Message: message}
+}
+
+func NewConflictErr(message string) error {
+	return ConflictErr{Message: message}
 }

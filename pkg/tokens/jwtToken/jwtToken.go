@@ -67,3 +67,23 @@ func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, id int, role string) (
 
 	return accessToken, refreshToken, nil
 }
+
+func (j *JwtTokenIssuer) VerifyToken(ctx context.Context, tokenStr string) (*models.CustomClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &models.CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(j.secretKey), nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("verify token: %w", err)
+	}
+
+	claims, ok := token.Claims.(*models.CustomClaims)
+	if !ok || !token.Valid {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	return claims, nil
+}

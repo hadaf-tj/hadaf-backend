@@ -121,6 +121,14 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 	if err != nil {
 		return nil, err
 	}
+
+	// 5. Save refresh token to DB
+	refreshHash := utils.HashToken(refresh)
+	expiresAt := time.Now().UTC().Add(s.cfg.Security.RefreshTokenTTL)
+	if err := s.repo.SaveRefreshToken(ctx, user.ID, refreshHash, expiresAt); err != nil {
+		return nil, fmt.Errorf("failed to save refresh token: %w", err)
+	}
+
 	return &models.TokenResponse{
 		AccessToken:  access,
 		RefreshToken: refresh,
@@ -153,7 +161,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.To
 		return nil, fmt.Errorf("get user error: %w", err)
 	}
 
-	if err = bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(password)); err != nil {
 		return nil, myerrors.NewUnauthorizedErr("Неверный пароль либо логин")
 	}
 
@@ -161,14 +169,75 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.To
 	if err != nil {
 		return nil, fmt.Errorf("issue tokens err: %w", err)
 	}
+
+	// Store refresh token in database (hashed)
+	refreshHash := utils.HashToken(refresh)
+	expiresAt := time.Now().UTC().Add(s.cfg.Security.RefreshTokenTTL)
+	if err := s.repo.SaveRefreshToken(ctx, user.ID, refreshHash, expiresAt); err != nil {
+		return nil, fmt.Errorf("failed to save refresh token: %w", err)
+	}
+
 	return &models.TokenResponse{
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}, nil
 }
 
+func (s *Service) RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenResponse, error) {
+	// 1. Verify token signature and claims
+	claims, err := s.token.VerifyToken(ctx, refreshToken)
+	if err != nil {
+		return nil, myerrors.NewUnauthorizedErr("Недействительный токен")
+	}
+
+	// 2. Hash and check if it exists and is not revoked
+	refreshHash := utils.HashToken(refreshToken)
+	stored, err := s.repo.GetRefreshToken(ctx, refreshHash)
+	if err != nil {
+		return nil, myerrors.NewUnauthorizedErr("Токен не найден")
+	}
+
+	if stored.IsRevoked {
+		// Potential reuse attack!
+		_ = s.repo.RevokeAllUserRefreshTokens(ctx, stored.UserID)
+		return nil, myerrors.NewForbiddenErr("Токен был отозван")
+	}
+
+	if time.Now().UTC().After(stored.ExpiresAt) {
+		return nil, myerrors.NewUnauthorizedErr("Срок действия токена истек")
+	}
+
+	// 3. Revoke current token (rotation)
+	if err := s.repo.RevokeRefreshToken(ctx, refreshHash); err != nil {
+		return nil, fmt.Errorf("revoke old token: %w", err)
+	}
+
+	// 4. Issue new pair
+	access, refresh, err := s.token.IssueTokens(ctx, claims.UserID, claims.Role)
+	if err != nil {
+		return nil, fmt.Errorf("issue new tokens: %w", err)
+	}
+
+	// 5. Save new refresh token
+	newRefreshHash := utils.HashToken(refresh)
+	newExpiresAt := time.Now().UTC().Add(s.cfg.Security.RefreshTokenTTL)
+	if err := s.repo.SaveRefreshToken(ctx, claims.UserID, newRefreshHash, newExpiresAt); err != nil {
+		return nil, fmt.Errorf("save new refresh token: %w", err)
+	}
+
+	return &models.TokenResponse{
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}, nil
+}
+
+func (s *Service) RevokeAllUserRefreshTokens(ctx context.Context, userID int) error {
+	return s.repo.RevokeAllUserRefreshTokens(ctx, userID)
+}
+
 func (s *Service) Register(ctx context.Context, email, phone, password, fullName, role string, institutionID *int) (*models.TokenResponse, error) {
 	// 1. Проверяем, не существует ли уже пользователь с таким email
+	email = strings.ToLower(strings.TrimSpace(email))
 	existing, err := s.repo.GetUserByEmail(ctx, email)
 	if err == nil && existing != nil {
 		return nil, myerrors.NewBadRequestErr("Пользователь с таким email уже существует")
