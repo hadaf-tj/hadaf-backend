@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"shb/internal/models"
@@ -94,8 +95,26 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 		user, err = s.repo.GetUserByPhone(ctx, receiver)
 	}
 
-	if err != nil {
-		return nil, myerrors.NewBadRequestErr("Пользователь не найден")
+	// NEW: registration flow - if user doesn't exist in DB, look in Cache
+	if err != nil && errors.Is(err, myerrors.ErrNotFound) {
+		redisKey := fmt.Sprintf("pending_reg:%s", receiver)
+		userJSON, cacheErr := s.cache.Get(ctx, redisKey)
+		if cacheErr == nil && userJSON != "" {
+			var pendingUser models.User
+			if err := json.Unmarshal([]byte(userJSON), &pendingUser); err != nil {
+				return nil, fmt.Errorf("failed to deserialize pending user info: %w", err)
+			}
+
+			if err := s.repo.CreateUser(ctx, &pendingUser); err != nil {
+				return nil, fmt.Errorf("failed to create user after otp confirmation: %w", err)
+			}
+			user = &pendingUser
+			_ = s.cache.Delete(ctx, redisKey)
+		} else {
+			return nil, myerrors.NewBadRequestErr("Пользователь не найден")
+		}
+	} else if err != nil {
+		return nil, err
 	}
 
 	if !user.IsActive {
@@ -242,12 +261,19 @@ func (s *Service) Register(ctx context.Context, email, phone, password, fullName
 		Password:      &hashedStr,
 		Role:          role,
 		InstitutionID: institutionID,
-		IsActive:      false,
+		IsActive:      true,  // Set to active since it will be verified by OTP first anyway
 		IsApproved:    false, // Default to unapproved until superadmin approves
 	}
 
-	if err := s.repo.CreateUser(ctx, newUser); err != nil {
-		return nil, err
+	// Instead of DB, store in cache until OTP confirmed
+	userJSON, err := json.Marshal(newUser)
+	if err != nil {
+		return nil, fmt.Errorf("marshal user: %w", err)
+	}
+
+	redisKey := fmt.Sprintf("pending_reg:%s", email)
+	if err := s.cache.Set(ctx, redisKey, string(userJSON), 15*time.Minute); err != nil {
+		return nil, fmt.Errorf("save user to cache: %w", err)
 	}
 
 	if _, err := s.SendOTP(ctx, email); err != nil {

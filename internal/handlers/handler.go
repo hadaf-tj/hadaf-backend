@@ -105,7 +105,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		v1.POST("/confirm_otp", h.confirmOTP)
 		v1.POST("/login", h.login)
 		v1.POST("/register", h.register)
-		v1.POST("/logout", h.logout)
+		v1.POST("/logout", h.middleware.AuthMiddleware(), h.logout)
 		v1.POST("/refresh", h.refreshTokens)
 
 		// Исправленный вызов middleware
