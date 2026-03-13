@@ -105,6 +105,9 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE INDEX IF NOT EXISTS idx_bookings_need_id ON bookings(need_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_user_need_active_uniq
+  ON bookings(user_id, need_id)
+  WHERE status NOT IN ('cancelled', 'rejected') AND is_deleted = false;
 
 -- Таблица волонтёрских событий
 CREATE TABLE IF NOT EXISTS events (
