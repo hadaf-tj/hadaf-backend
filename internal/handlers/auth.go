@@ -149,6 +149,20 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 func (h *Handler) register(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	// H5: Registration Rate Limit (IP-based) to prevent automated bot storm
+	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
+	if !isLocal {
+		ipKey := fmt.Sprintf("register_ip:%s", c.ClientIP())
+		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600) // Max 3 registrations per hour per IP
+		if err != nil {
+			h.logger.Error().Err(err).Msg("rate limiter error for register")
+		}
+		if !allowed {
+			h.handleError(c, myerrors.NewTooManyRequestsErr("Слишком много попыток регистрации с вашего адреса. Попробуйте через час."))
+			return
+		}
+	}
+
 	// Структура запроса
 	in := struct {
 		Email    string `json:"email" binding:"required,email"` // Email обязателен
@@ -239,6 +253,21 @@ func (h *Handler) login(c *gin.Context) {
 func (h *Handler) refreshTokens(c *gin.Context) {
 	ctx := c.Request.Context()
 	logger := h.logger.With().Ctx(ctx).Str("handler", "refreshTokens").Logger()
+
+	// Rate limit refresh attempts to prevent abuse
+	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
+	if !isLocal {
+		// Use IP for refresh limiting to avoid hammered endpoints
+		ipKey := fmt.Sprintf("refresh_ip:%s", c.ClientIP())
+		allowed, err := h.limiter.Allow(ctx, ipKey, 10, 60) // Max 10 refreshes per minute per IP
+		if err != nil {
+			logger.Error().Err(err).Msg("rate limiter error for refresh")
+		}
+		if !allowed {
+			h.handleError(c, myerrors.NewTooManyRequestsErr("Слишком частое обновление токенов. Подождите минуту."))
+			return
+		}
+	}
 
 	// Get refresh token from cookie
 	cookie, err := c.Request.Cookie("refresh_token")
