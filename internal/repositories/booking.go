@@ -49,6 +49,30 @@ func (r *Repository) GetBookingByID(ctx context.Context, id int) (*models.Bookin
 	return b.ToDomain(), nil
 }
 
+func (r *Repository) GetActiveBookingByUserAndNeed(ctx context.Context, userID, needID int) (*models.Booking, error) {
+	query := `
+		SELECT id, user_id, need_id, quantity, note, status, created_at, updated_at, is_deleted, deleted_at
+		FROM bookings
+		WHERE user_id = $1 AND need_id = $2 
+		  AND status NOT IN ('cancelled', 'rejected') 
+		  AND is_deleted = false
+		LIMIT 1
+	`
+	var b dbBooking
+	err := r.postgres.QueryRow(ctx, query, userID, needID).Scan(
+		&b.ID, &b.UserID, &b.NeedID, &b.Quantity, &b.Note, &b.Status,
+		&b.CreatedAt, &b.UpdatedAt, &b.IsDeleted, &b.DeletedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // No active booking found, return nil without error
+		}
+		return nil, fmt.Errorf("check active booking: %w", err)
+	}
+	return b.ToDomain(), nil
+}
+
+
 func (r *Repository) GetBookingsByNeed(ctx context.Context, needID int) ([]*models.Booking, error) {
 	query := `
 		SELECT id, user_id, need_id, quantity, note, status, created_at, updated_at, is_deleted, deleted_at

@@ -35,6 +35,15 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 		return 0, myerrors.NewBadRequestErr("quantity must be greater than 0")
 	}
 
+	// Check if user already has an active booking for this need
+	existingBooking, err := s.repo.GetActiveBookingByUserAndNeed(ctx, userID, needID)
+	if err != nil {
+		return 0, fmt.Errorf("check existing booking: %w", err)
+	}
+	if existingBooking != nil {
+		return 0, myerrors.NewConflictErr("у вас уже есть активная заявка на помощь по этой нужде")
+	}
+
 	// Create booking with status "pending"
 	booking := &models.Booking{
 		UserID:   userID,
@@ -43,6 +52,7 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 		Note:     note,
 		Status:   models.BookingStatusPending,
 	}
+
 
 	bookingID, err := s.repo.CreateBooking(ctx, booking)
 	if err != nil {
