@@ -25,12 +25,13 @@ func NewJwtTokenIssuer(secretKey string, accessTTL, refreshTTL time.Duration) *J
 	}
 }
 
-func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, id int, role string) (string, string, error) {
+func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, id int, role string, isApproved bool) (string, string, error) {
 	now := time.Now().UTC()
 
 	accessClaims := models.CustomClaims{
-		UserID: id,
-		Role:   role, // <--- Добавили роль
+		UserID:     id,
+		Role:       role,
+		IsApproved: isApproved, // <--- Добавили проверку модерации
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   constants.AccessSubject,
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.accessTTL)),
@@ -41,8 +42,9 @@ func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, id int, role string) (
 	}
 
 	refreshClaims := models.CustomClaims{
-		UserID: id,
-		Role:   role,
+		UserID:     id,
+		Role:       role,
+		IsApproved: isApproved,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   constants.RefreshSubject,
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.refreshTTL)),

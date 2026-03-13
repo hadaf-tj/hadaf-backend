@@ -18,6 +18,7 @@ type User struct {
 	Password      *string    `json:"password"`
 	Role          string     `json:"role"`
 	IsActive      bool       `json:"is_active"`
+	IsApproved    bool       `json:"is_approved"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at"`
 	IsDeleted     bool       `json:"is_deleted"`

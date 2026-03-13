@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
     is_deleted BOOLEAN DEFAULT FALSE,
-    deleted_at TIMESTAMPTZ DEFAULT NULL
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    is_approved BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Категории нужд (Продукты, Гигиена, Одежда...)

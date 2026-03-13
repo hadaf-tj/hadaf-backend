@@ -15,6 +15,20 @@ func (h *Handler) createNeed(c *gin.Context) {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid input"))
 		return
 	}
+
+	// Security: always take institution_id from the JWT, not from request body.
+	// This prevents an employee from creating needs for another institution.
+	role, _ := c.Get("role")
+	if role.(string) != models.RoleSuperAdmin {
+		userID, _ := c.Get("userID")
+		user, err := h.service.GetUserByID(c.Request.Context(), userID.(int))
+		if err != nil || user.InstitutionID == nil {
+			h.handleError(c, myerrors.NewForbiddenErr("employee is not linked to any institution"))
+			return
+		}
+		input.InstitutionID = *user.InstitutionID
+	}
+
 	id, err := h.service.CreateNeed(c.Request.Context(), &input)
 	if err != nil {
 		h.handleError(c, err)

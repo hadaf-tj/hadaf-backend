@@ -14,6 +14,7 @@ type dbUser struct {
 	Password      *string    `db:"password"`
 	Role          string     `db:"role"`
 	IsActive      bool       `db:"is_active"`
+	IsApproved    bool       `db:"is_approved"`
 	CreatedAt     time.Time  `db:"created_at"`
 	UpdatedAt     *time.Time `db:"updated_at"`
 	IsDeleted     bool       `db:"is_deleted"`

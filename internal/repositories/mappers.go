@@ -18,6 +18,7 @@ func (u *dbUser) ToDomain() *models.User {
 		Password:      u.Password,
 		Role:          u.Role,
 		IsActive:      u.IsActive,
+		IsApproved:    u.IsApproved,
 		CreatedAt:     u.CreatedAt,
 		UpdatedAt:     u.UpdatedAt,
 		IsDeleted:     u.IsDeleted,

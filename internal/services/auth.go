@@ -116,8 +116,12 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 		}
 	}
 
+	if user.Role == models.RoleEmployee && !user.IsApproved {
+		return nil, myerrors.NewForbiddenErr("Ваш аккаунт ожидает подтверждения администратором")
+	}
+
 	// 4. Выдаем токены
-	access, refresh, err := s.token.IssueTokens(ctx, user.ID, user.Role)
+	access, refresh, err := s.token.IssueTokens(ctx, user.ID, user.Role, user.IsApproved)
 	if err != nil {
 		return nil, err
 	}
@@ -153,11 +157,19 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.To
 		return nil, fmt.Errorf("get user error: %w", err)
 	}
 
+	if !user.IsActive {
+		return nil, myerrors.NewUnauthorizedErr("Неверный пароль либо логин")
+	}
+
+	if user.Role == models.RoleEmployee && !user.IsApproved {
+		return nil, myerrors.NewForbiddenErr("Ваш аккаунт ожидает подтверждения администратором")
+	}
+
 	if err = bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(password)); err != nil {
 		return nil, myerrors.NewUnauthorizedErr("Неверный пароль либо логин")
 	}
 
-	access, refresh, err := s.token.IssueTokens(ctx, user.ID, user.Role)
+	access, refresh, err := s.token.IssueTokens(ctx, user.ID, user.Role, user.IsApproved)
 	if err != nil {
 		return nil, fmt.Errorf("issue tokens err: %w", err)
 	}
@@ -181,7 +193,15 @@ func (s *Service) Register(ctx context.Context, email, phone, password, fullName
 	}
 	hashedStr := string(hashedPassword)
 
-	// 3. Создаем пользователя НЕАКТИВНЫМ (со всеми полями)
+	// 3. Если роль employee — проверяем, что institution_id существует
+	if role == models.RoleEmployee && institutionID != nil {
+		inst, err := s.repo.GetInstitutionByID(ctx, *institutionID)
+		if err != nil || inst.IsDeleted {
+			return nil, myerrors.NewBadRequestErr("Указанное учреждение не найдено")
+		}
+	}
+
+	// 4. Создаём пользователя НЕАКТИВНЫМ (со всеми полями)
 	newUser := &models.User{
 		Email:         &email,
 		Phone:         &phone,
