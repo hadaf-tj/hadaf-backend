@@ -118,10 +118,38 @@ CREATE TABLE IF NOT EXISTS events (
     event_date TIMESTAMPTZ NOT NULL,        -- Дата и время события
     institution_id INT NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
     creator_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'pending',   -- 'pending', 'approved', 'rejected'
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS vacancies (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(100),
+    experience VARCHAR(100),
+    workload VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ,
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS team_members (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(200) NOT NULL,
+    photo_url VARCHAR(500),
+    quote TEXT,
+    telegram VARCHAR(255),
+    linkedin VARCHAR(500),
+    sort_order INT DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ
 );
 
 -- Таблица участников событий (M2M)
@@ -136,6 +164,7 @@ CREATE TABLE IF NOT EXISTS event_participants (
 CREATE INDEX IF NOT EXISTS idx_events_event_date ON events(event_date);
 CREATE INDEX IF NOT EXISTS idx_events_institution_id ON events(institution_id);
 CREATE INDEX IF NOT EXISTS idx_events_creator_id ON events(creator_id);
+CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);
 -- Таблица для хранения и ротации refresh-токенов
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id           SERIAL PRIMARY KEY,
