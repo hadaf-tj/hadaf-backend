@@ -30,7 +30,7 @@ type IService interface {
 	Register(ctx context.Context, email, phone, password, fullName, role string, institutionID *int) (*models.TokenResponse, error)
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
 
-	GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error)
+	GetAllInstitutions(ctx context.Context, q models.InstitutionListQuery) (*models.InstitutionPage, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
 
@@ -51,7 +51,8 @@ type IService interface {
 
 	// --- Event Methods ---
 	CreateEvent(ctx context.Context, e *models.Event) (int, error)
-	GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error)
+	GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error)
+	GetEventDetail(ctx context.Context, q models.EventDetailQuery) (*models.EventResponse, error)
 	GetEventByID(ctx context.Context, id int) (*models.Event, error)
 	JoinEvent(ctx context.Context, eventID, userID int) error
 	LeaveEvent(ctx context.Context, eventID, userID int) error
@@ -158,6 +159,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 		// Events routes - волонтёрские события
 		v1.GET("/events", h.middleware.OptionalAccessToken(), h.getAllEvents)
+		v1.GET("/events/:id", h.middleware.OptionalAccessToken(), h.getEventByID)
 		v1.POST("/events", h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin), h.createEvent)
 		v1.POST("/events/:id/join", h.middleware.AuthMiddleware(), h.joinEvent)
 		v1.DELETE("/events/:id/leave", h.middleware.AuthMiddleware(), h.leaveEvent)
@@ -193,6 +195,8 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 	conflict := &myerrors.ConflictErr{}
 
 	switch {
+	case errors.Is(err, myerrors.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"message": myerrors.ErrNotFound.Error()})
 	case errors.As(err, unprocessable):
 		c.JSON(http.StatusUnprocessableEntity, unprocessable)
 	case errors.As(err, badReq):

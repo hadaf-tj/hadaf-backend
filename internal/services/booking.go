@@ -53,7 +53,6 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 		Status:   models.BookingStatusPending,
 	}
 
-
 	bookingID, err := s.repo.CreateBooking(ctx, booking)
 	if err != nil {
 		return 0, fmt.Errorf("create booking: %w", err)

@@ -2,9 +2,12 @@ package services
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"time"
+
 	"shb/internal/models"
 	"shb/pkg/myerrors"
-	"time"
 )
 
 // CreateEvent создаёт новое событие
@@ -23,14 +26,26 @@ func (s *Service) CreateEvent(ctx context.Context, e *models.Event) (int, error)
 	return s.repo.CreateEvent(ctx, e)
 }
 
-// GetAllEvents получает все события
-func (s *Service) GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error) {
-	return s.repo.GetAllEvents(ctx, userID)
+// GetAllEvents получает страницу событий.
+func (s *Service) GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error) {
+	return s.repo.GetAllEvents(ctx, q)
 }
 
 // GetEventByID получает событие по ID
 func (s *Service) GetEventByID(ctx context.Context, id int) (*models.Event, error) {
 	return s.repo.GetEventByID(ctx, id)
+}
+
+// GetEventDetail возвращает карточку события (как в списке).
+func (s *Service) GetEventDetail(ctx context.Context, q models.EventDetailQuery) (*models.EventResponse, error) {
+	ev, err := s.repo.GetEventDetail(ctx, q)
+	if err != nil {
+		if errors.Is(err, myerrors.ErrNotFound) {
+			return nil, fmt.Errorf("get event detail: %w", myerrors.ErrNotFound)
+		}
+		return nil, err
+	}
+	return ev, nil
 }
 
 // JoinEvent записывает пользователя на событие

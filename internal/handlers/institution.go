@@ -26,14 +26,28 @@ func (h *Handler) getAllInstitutions(c *gin.Context) {
 		lng, _ = strconv.ParseFloat(lngStr, 64)
 	}
 
-	institutions, err := h.service.GetAllInstitutions(ctx, search, iType, lat, lng, sortBy)
+	limit, offset, err := parseLimitOffset(c)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	page, err := h.service.GetAllInstitutions(ctx, models.InstitutionListQuery{
+		Search:  search,
+		Type:    iType,
+		UserLat: lat,
+		UserLng: lng,
+		SortBy:  sortBy,
+		Limit:   limit,
+		Offset:  offset,
+	})
 	if err != nil {
 		h.logger.Error().Err(err).Msg("failed to get institutions")
 		h.handleError(c, myerrors.ErrGeneral)
 		return
 	}
 
-	h.success(c, institutions)
+	h.success(c, page)
 }
 
 func (h *Handler) createInstitution(c *gin.Context) {

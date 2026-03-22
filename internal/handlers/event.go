@@ -29,12 +29,50 @@ func (h *Handler) getAllEvents(c *gin.Context) {
 		}
 	}
 
-	events, err := h.service.GetAllEvents(ctx, userID)
+	limit, offset, err := parseLimitOffset(c)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
-	h.success(c, events)
+
+	page, err := h.service.GetAllEvents(ctx, models.EventListQuery{
+		UserID: userID,
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	h.success(c, page)
+}
+
+func (h *Handler) getEventByID(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	idStr := c.Param("id")
+	eventID, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid id"))
+		return
+	}
+
+	userID := 0
+	if id, exists := c.Get("userID"); exists {
+		if uid, ok := id.(int); ok {
+			userID = uid
+		}
+	}
+
+	ev, err := h.service.GetEventDetail(ctx, models.EventDetailQuery{
+		EventID:      eventID,
+		ViewerUserID: userID,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	h.success(c, ev)
 }
 
 // createEvent создаёт новое событие
@@ -150,4 +188,3 @@ func (h *Handler) leaveEvent(c *gin.Context) {
 
 	h.success(c, "left")
 }
-

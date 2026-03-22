@@ -5,8 +5,8 @@ import (
 	"shb/internal/models"
 )
 
-func (s *Service) GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error) {
-	return s.repo.GetAllInstitutions(ctx, search, iType, userLat, userLng, sortBy)
+func (s *Service) GetAllInstitutions(ctx context.Context, q models.InstitutionListQuery) (*models.InstitutionPage, error) {
+	return s.repo.GetAllInstitutions(ctx, q)
 }
 
 func (s *Service) CreateInstitution(ctx context.Context, i *models.Institution) (int, error) {

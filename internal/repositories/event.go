@@ -2,8 +2,12 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"shb/internal/models"
+	"shb/pkg/myerrors"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // CreateEvent создаёт новое событие
@@ -41,9 +45,9 @@ func (r *Repository) GetEventByID(ctx context.Context, id int) (*models.Event, e
 	return &e, nil
 }
 
-// GetAllEvents получает все события с дополнительными данными
-func (r *Repository) GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error) {
-	query := `
+// GetEventDetail возвращает одно событие в формате EventResponse (как элемент списка).
+func (r *Repository) GetEventDetail(ctx context.Context, q models.EventDetailQuery) (*models.EventResponse, error) {
+	const query = `
 		SELECT 
 			e.id,
 			e.title,
@@ -59,30 +63,102 @@ func (r *Repository) GetAllEvents(ctx context.Context, userID int) ([]*models.Ev
 		FROM events e
 		JOIN institutions i ON e.institution_id = i.id
 		JOIN users u ON e.creator_id = u.id
-		WHERE e.is_deleted = false
-		ORDER BY e.event_date ASC
+		WHERE e.is_deleted = false AND e.id = $2
 	`
 
-	rows, err := r.postgres.Query(ctx, query, userID)
+	var e models.EventResponse
+	err := r.postgres.QueryRow(ctx, query, q.ViewerUserID, q.EventID).Scan(
+		&e.ID, &e.Title, &e.Description, &e.EventDate, &e.InstitutionID, &e.InstitutionName,
+		&e.CreatorID, &e.CreatorName, &e.ParticipantsCount, &e.IsJoined, &e.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, myerrors.ErrNotFound
+		}
+		return nil, fmt.Errorf("get event detail: %w", err)
+	}
+	return &e, nil
+}
+
+func (r *Repository) countEvents(ctx context.Context) (int64, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM events e
+		JOIN institutions i ON e.institution_id = i.id
+		JOIN users u ON e.creator_id = u.id
+		WHERE e.is_deleted = false
+	`
+	var total int64
+	err := r.postgres.QueryRow(ctx, query).Scan(&total)
+	if err != nil {
+		return 0, fmt.Errorf("count events: %w", err)
+	}
+	return total, nil
+}
+
+// GetAllEvents возвращает страницу событий с дополнительными данными.
+func (r *Repository) GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error) {
+	query := `
+		SELECT 
+			e.id,
+			e.title,
+			e.description,
+			e.event_date,
+			e.institution_id,
+			i.name as institution_name,
+			e.creator_id,
+			COALESCE(u.full_name, u.phone, 'Организатор') as creator_name,
+			(SELECT COUNT(*) FROM event_participants ep WHERE ep.event_id = e.id) as participants_count,
+			EXISTS(SELECT 1 FROM event_participants ep WHERE ep.event_id = e.id AND ep.user_id = $1) as is_joined,
+			e.created_at,
+			COUNT(*) OVER() AS total_count
+		FROM events e
+		JOIN institutions i ON e.institution_id = i.id
+		JOIN users u ON e.creator_id = u.id
+		WHERE e.is_deleted = false
+		ORDER BY e.event_date ASC, e.id ASC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.postgres.Query(ctx, query, q.UserID, q.Limit, q.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("get events: %w", err)
 	}
 	defer rows.Close()
 
 	events := make([]*models.EventResponse, 0)
+	var total int64
 
 	for rows.Next() {
 		var e models.EventResponse
 		if err := rows.Scan(
 			&e.ID, &e.Title, &e.Description, &e.EventDate, &e.InstitutionID, &e.InstitutionName,
 			&e.CreatorID, &e.CreatorName, &e.ParticipantsCount, &e.IsJoined, &e.CreatedAt,
+			&total,
 		); err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}
 		events = append(events, &e)
 	}
 
-	return events, nil
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+
+	if len(events) == 0 {
+		var errCount error
+		total, errCount = r.countEvents(ctx)
+		if errCount != nil {
+			return nil, errCount
+		}
+	}
+
+	return &models.EventPage{
+		Items:  events,
+		Total:  total,
+		Limit:  q.Limit,
+		Offset: q.Offset,
+	}, nil
 }
 
 // JoinEvent записывает пользователя на событие

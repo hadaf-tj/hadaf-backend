@@ -35,7 +35,7 @@ type IRepository interface {
 	IncreaseOTPAttempt(ctx context.Context, otpID int, phone string) error
 
 	// --- Institution Methods ---
-	GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error)
+	GetAllInstitutions(ctx context.Context, q models.InstitutionListQuery) (*models.InstitutionPage, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
 
@@ -60,7 +60,8 @@ type IRepository interface {
 	// --- Event Methods ---
 	CreateEvent(ctx context.Context, e *models.Event) (int, error)
 	GetEventByID(ctx context.Context, id int) (*models.Event, error)
-	GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error)
+	GetEventDetail(ctx context.Context, q models.EventDetailQuery) (*models.EventResponse, error)
+	GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error)
 	JoinEvent(ctx context.Context, eventID, userID int) error
 	LeaveEvent(ctx context.Context, eventID, userID int) error
 
