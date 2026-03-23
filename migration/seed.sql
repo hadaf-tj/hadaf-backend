@@ -137,57 +137,57 @@ AND NOT EXISTS (SELECT 1 FROM events WHERE title = 'Мастер-класс по
 
 -- Seed данных команды
 INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
-SELECT 'Сиёвуш Хамидов', 'Founder & CTO', '/team/siyovush_hamidov.jpg', 'Хочу, чтобы помощь была прозрачной, адресной и по-человечески тёплой.', 'https://t.me/siyovush_hamidov', 'https://www.linkedin.com/in/siyovush-hamidov/', 1
+SELECT 'Сиёвуш Хамидов', 'Founder & CTO', '/team/siyovush_hamidov.webp', 'Хочу, чтобы помощь была прозрачной, адресной и по-человечески тёплой.', 'https://t.me/siyovush_hamidov', 'https://www.linkedin.com/in/siyovush-hamidov/', 1
 WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Сиёвуш Хамидов');
 
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Саидмехродж Шукурзода', 'Backend Разработчик', 'Пишу код, который стоит за каждой доставленной помощью.', 'https://t.me/s_mehroj', 'https://www.linkedin.com/in/shukurzodasaidmehroj/', 2
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Абдукахор Якуби', 'Lead Mobile Разработчик', '/team/abdukakhor_yakubi.webp', 'Добро должно быть в кармане — буквально.', 'https://t.me/yakubiam', '', 4
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Абдукахор Якуби');
+
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Саидмехродж Шукурзода', 'Lead Backend Разработчик', '/team/saidmehroj_shukurzoda.webp', 'Пишу код, который стоит за каждой доставленной помощью.', 'https://t.me/s_mehroj', 'https://www.linkedin.com/in/shukurzodasaidmehroj/', 2
 WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Саидмехродж Шукурзода');
 
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Манучехр Олимов', 'Backend Разработчик', 'Верю, что надёжная система — это тоже форма заботы.', 'https://t.me/olimov_manu', 'https://www.linkedin.com/in/manuchehr-olimov/', 3
-WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Манучехр Олимов');
-
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Раббони Бафоев', 'Backend Разработчик', 'Каждая строка кода — шаг к тому, чтобы кто-то получил помощь вовремя.', 'https://t.me/AB001G', 'https://www.linkedin.com/in/rabboni-bafoev-45052131b/', 4
-WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Раббони Бафоев');
-
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Илёс Джабборов', 'Frontend Разработчик', 'Делаю так, чтобы помогать было просто и приятно.', 'https://t.me/si_senor9', '', 5
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Илёс Джабборов', 'Lead Frontend Разработчик', '/team/ilyos_djabborov.webp', 'Делаю так, чтобы помогать было просто и приятно.', 'https://t.me/si_senor9', '', 3
 WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Илёс Джабборов');
 
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Абукахор Якуби', 'Mobile Разработчик', 'Добро должно быть в кармане — буквально.', 'https://t.me/yakubiam', '', 6
-WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Абукахор Якуби');
-
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Алиджон Тошев', 'QA Инженер', 'Моя задача — чтобы ни одна ошибка не встала между помощью и человеком.', 'https://t.me/alijon07_t', '', 7
-WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Алиджон Тошев');
-
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Анна Сардаковская', 'UX/UI Дизайнер', 'Хороший интерфейс — когда бабушка разберётся без инструкции.', 'https://t.me/netta_sardakovskaia', 'https://www.linkedin.com/in/anna-sardakovskaya/', 8
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Анна Сардаковская', 'Lead UX/UI Дизайнер', '/team/anna_sardakovskaya.webp', 'Хороший интерфейс — когда бабушка разберётся без инструкции.', 'https://t.me/netta_sardakovskaia', 'https://www.linkedin.com/in/anna-sardakovskaya/', 5
 WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Анна Сардаковская');
 
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Елизавета Сирошенко', 'UX/UI Дизайнер', 'Красота — это не про декор. Это про ощущение, что тебе здесь рады.', 'https://t.me/liza_oper', 'https://www.linkedin.com/in/elizaveta-siroshenko-b51350327/', 9
-WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Елизавета Сирошенко');
-
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Фарзона Ахмедова', 'Маркетолог', 'Рассказываю истории, которые вдохновляют людей помогать.', 'https://t.me/farzona_Akhmedova', 'https://www.linkedin.com/in/farzona-akhmedova-952082213/', 10
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Фарзона Ахмедова', 'Lead Маркетолог', '/team/farzona_akhmedova.webp', 'Рассказываю истории, которые вдохновляют людей помогать.', 'https://t.me/farzona_Akhmedova', 'https://www.linkedin.com/in/farzona-akhmedova-952082213/', 6
 WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Фарзона Ахмедова');
 
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Шарипов Шухрат', 'Frontend Разработчик', 'Интерфейс должен быть не только красивым, но и помогать делать добро без лишних кликов.', 'https://t.me/sharipovsh13', '', 11
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Манучехр Олимов', 'Backend Разработчик', '/team/manuchehr_olimov.webp', 'Верю, что надёжная система — это тоже форма заботы.', 'https://t.me/olimov_manu', 'https://www.linkedin.com/in/manuchehr-olimov/', 7
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Манучехр Олимов');
+
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Раббони Бафоев', 'Backend Разработчик', '/team/rabboni_bafoev.webp', 'Каждая строка кода — шаг к тому, чтобы кто-то получил помощь вовремя.', 'https://t.me/AB001G', 'https://www.linkedin.com/in/rabboni-bafoev-45052131b/', 8
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Раббони Бафоев');
+
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Зокиров Шерзод', 'Fullstack Разработчик', '/team/zokirov_sherzod.webp', 'Сильный код — это инструмент, с помощью которого можно растить огромную пользу.', 'https://t.me/sherzod8966', '', 9
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Зокиров Шерзод');
+
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Шарипов Шухрат', 'Frontend Разработчик', '/team/sharipov_shukhrat.webp', 'Интерфейс должен быть не только красивым, но и помогать делать добро без лишних кликов.', 'https://t.me/sharipovsh13', '', 10
 WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Шарипов Шухрат');
 
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Абдуллаев Хуссейн', 'QA/Fullstack Разработчик', 'Проверяю каждую функцию, чтобы ни одна техническая ошибка не помешала кому-то получить помощь.', 'https://t.me/khusein19', '', 12
-WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Абдуллаев Хуссейн');
-
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Мехроб Абдулвахобов', 'Mobile Разработчик', 'Создаю мобильное приложение, чтобы возможность менять мир была всегда под рукой.', 'https://t.me/Itschillipill', '', 13
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Мехроб Абдулвахобов', 'Mobile Разработчик', '/team/mehrob_abdulvakhobov.webp', 'Создаю мобильное приложение, чтобы возможность менять мир была всегда под рукой.', 'https://t.me/Itschillipill', '', 11
 WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Мехроб Абдулвахобов');
 
-INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
-SELECT 'Зокиров Шерзод', 'Fullstack Разработчик', 'Сильный код — это инструмент, с помощью которого можно растить огромную пользу.', 'https://t.me/sherzod8966', '', 14
-WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Зокиров Шерзод');
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Алиджон Тошев', 'QA Инженер', '/team/alijon_toshev.webp', 'Моя задача — чтобы ни одна ошибка не встала между помощью и человеком.', 'https://t.me/alijon07_t', '', 12
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Алиджон Тошев');
+
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Абдуллаев Хусейн', 'QA Инженер', '/team/abdullaev_khusein.webp', 'Проверяю каждую функцию, чтобы ни одна техническая ошибка не помешала кому-то получить помощь.', 'https://t.me/khusein19', '', 13
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Абдуллаев Хусейн');
+
+INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
+SELECT 'Елизавета Сирошенко', 'UX/UI Дизайнер', '/team/elizaveta_siroshenko.webp', 'Красота — это не про декор. Это про ощущение, что тебе здесь рады.', 'https://t.me/liza_oper', 'https://www.linkedin.com/in/elizaveta-siroshenko-b51350327/', 14
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Елизавета Сирошенко');
