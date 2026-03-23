@@ -88,6 +88,7 @@ func (i *dbInstitution) ToDomain() *models.Institution {
 		UpdatedAt:     i.UpdatedAt,
 		IsDeleted:     i.IsDeleted,
 		DeletedAt:     i.DeletedAt,
+		WardsCount:    i.WardsCount,
 	}
 }
 

@@ -5,26 +5,26 @@ INSERT INTO categories (name) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- 2. УЧРЕЖДЕНИЯ (Таджикистан) - Добавлена приставка [ТЕСТ]
-INSERT INTO institutions (name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude) VALUES 
+INSERT INTO institutions (name, type, city, region, address, phone, email, description, activity_hours, latitude, longitude, wards_count) VALUES 
 (
     '[ТЕСТ] Дом-интернат для престарелых "Батош"', 'Elderly', 'Турсунзаде', 'РРП', 
     'ул. Парк Победы, 45', '+992 900 11 22 33', 'test_batosh@hadaf.tj', 
-    '[ТЕСТОВЫЕ ДАННЫЕ] Государственное учреждение для пожилых людей и инвалидов.', '08:00 - 17:00', 38.5134, 68.2256
+    '[ТЕСТОВЫЕ ДАННЫЕ] Государственное учреждение для пожилых людей и инвалидов.', '08:00 - 17:00', 38.5134, 68.2256, 120
 ),
 (
     '[ТЕСТ] Республиканская школа-интернат №1', 'Children', 'Душанбе', 'Душанбе', 
     'ул. Айни, 126', '+992 918 44 55 66', 'test_internat1@hadaf.tj', 
-    '[ТЕСТОВЫЕ ДАННЫЕ] Школа-интернат для детей-сирот и детей из малообеспеченных семей.', '24/7', 38.5598, 68.7870
+    '[ТЕСТОВЫЕ ДАННЫЕ] Школа-интернат для детей-сирот и детей из малообеспеченных семей.', '24/7', 38.5598, 68.7870, 350
 ),
 (
     '[ТЕСТ] Областной детский дом г. Худжанда', 'Children', 'Худжанд', 'Согд', 
     'ул. Сирдарья, 12', '+992 927 00 11 22', 'test_khujand_kids@hadaf.tj', 
-    '[ТЕСТОВЫЕ ДАННЫЕ] Учреждение для детей дошкольного возраста.', '09:00 - 18:00', 40.2833, 69.6167
+    '[ТЕСТОВЫЕ ДАННЫЕ] Учреждение для детей дошкольного возраста.', '09:00 - 18:00', 40.2833, 69.6167, 85
 ),
 (
     '[ТЕСТ] Центр социальной поддержки "Нур"', 'Disabled', 'Хорог', 'ГБАО', 
     'ул. Шош Саидов, 5', '+992 935 88 99 00', 'test_khorog_nur@hadaf.tj', 
-    '[ТЕСТОВЫЕ ДАННЫЕ] Помощь людям с ограниченными возможностями в горном регионе.', '10:00 - 16:00', 37.4894, 71.5529
+    '[ТЕСТОВЫЕ ДАННЫЕ] Помощь людям с ограниченными возможностями в горном регионе.', '10:00 - 16:00', 37.4894, 71.5529, 45
 )
 ON CONFLICT (name) DO NOTHING;
 
@@ -105,9 +105,35 @@ SELECT
     u.id, 
     'approved'
 FROM institutions i, users u 
-WHERE i.name = '[ТЕСТ] Дом-интернат для пожилых "Мехрубон"' 
+WHERE i.name = '[ТЕСТ] Областной детский дом г. Худжанда' 
 AND u.role = 'superadmin'
 AND NOT EXISTS (SELECT 1 FROM events WHERE title = 'Субботник по уборке территории');
+
+INSERT INTO events (title, description, event_date, institution_id, creator_id, status)
+SELECT 
+    'Сбор зимней одежды и обуви', 
+    'Собираем теплые куртки, шапки и зимнюю обувь для воспитанников к предстоящим холодам. Нужно собрать 50 комплектов (рост 120-150 см). Приносите новые вещи или в отличном состоянии.', 
+    NOW() + INTERVAL '5 days', 
+    i.id, 
+    u.id, 
+    'approved'
+FROM institutions i, users u 
+WHERE i.name = '[ТЕСТ] Областной детский дом г. Худжанда' 
+AND u.role = 'superadmin'
+AND NOT EXISTS (SELECT 1 FROM events WHERE title = 'Сбор зимней одежды и обуви');
+
+INSERT INTO events (title, description, event_date, institution_id, creator_id, status)
+SELECT 
+    'Мастер-класс по рисованию и сбор красок', 
+    'Ищем волонтёров, умеющих рисовать! Организуем творческий вечер для детей. Собираем материалы: 30 альбомов, гуашь, кисточки и цветные карандаши. Подарим детям праздник.', 
+    NOW() + INTERVAL '10 days', 
+    i.id, 
+    u.id, 
+    'approved'
+FROM institutions i, users u 
+WHERE i.name = '[ТЕСТ] Республиканская школа-интернат №1' 
+AND u.role = 'superadmin'
+AND NOT EXISTS (SELECT 1 FROM events WHERE title = 'Мастер-класс по рисованию и сбор красок');
 
 -- Seed данных команды
 INSERT INTO team_members (full_name, role, photo_url, quote, telegram, linkedin, sort_order)
@@ -149,3 +175,19 @@ WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Елизавет
 INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
 SELECT 'Фарзона Ахмедова', 'Маркетолог', 'Рассказываю истории, которые вдохновляют людей помогать.', 'https://t.me/farzona_Akhmedova', 'https://www.linkedin.com/in/farzona-akhmedova-952082213/', 10
 WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Фарзона Ахмедова');
+
+INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
+SELECT 'Шарипов Шухрат', 'Frontend Разработчик', 'Интерфейс должен быть не только красивым, но и помогать делать добро без лишних кликов.', 'https://t.me/sharipovsh13', '', 11
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Шарипов Шухрат');
+
+INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
+SELECT 'Абдуллаев Хуссейн', 'QA/Fullstack Разработчик', 'Проверяю каждую функцию, чтобы ни одна техническая ошибка не помешала кому-то получить помощь.', 'https://t.me/khusein19', '', 12
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Абдуллаев Хуссейн');
+
+INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
+SELECT 'Мехроб Абдулвахобов', 'Mobile Разработчик', 'Создаю мобильное приложение, чтобы возможность менять мир была всегда под рукой.', 'https://t.me/Itschillipill', '', 13
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Мехроб Абдулвахобов');
+
+INSERT INTO team_members (full_name, role, quote, telegram, linkedin, sort_order)
+SELECT 'Зокиров Шерзод', 'Fullstack Разработчик', 'Сильный код — это инструмент, с помощью которого можно растить огромную пользу.', 'https://t.me/sherzod8966', '', 14
+WHERE NOT EXISTS (SELECT 1 FROM team_members WHERE full_name = 'Зокиров Шерзод');

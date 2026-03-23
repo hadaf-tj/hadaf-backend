@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS institutions (
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ DEFAULT NULL,
     needs_count INT DEFAULT 0,
-    events_count INT DEFAULT 0
+    events_count INT DEFAULT 0,
+    wards_count INT DEFAULT 0
 );
 
 -- Таблица пользователей
