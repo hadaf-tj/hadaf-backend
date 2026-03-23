@@ -9,6 +9,7 @@ type Event struct {
 	EventDate     time.Time  `json:"event_date"`
 	InstitutionID int        `json:"institution_id"`
 	CreatorID     int        `json:"creator_id"`
+	Status        string     `json:"status"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at"`
 	IsDeleted     bool       `json:"is_deleted"`
@@ -28,6 +29,7 @@ type EventResponse struct {
 	CreatorAvatar     *string   `json:"creator_avatar"`
 	ParticipantsCount int       `json:"participants_count"`
 	IsJoined          bool      `json:"is_joined"`
+	Status            string    `json:"status"`
 	CreatedAt         time.Time `json:"created_at"`
 }
 

@@ -55,9 +55,20 @@ type IService interface {
 	GetEventByID(ctx context.Context, id int) (*models.Event, error)
 	JoinEvent(ctx context.Context, eventID, userID int) error
 	LeaveEvent(ctx context.Context, eventID, userID int) error
+	GetInstitutionEvents(ctx context.Context, institutionID int) ([]*models.EventResponse, error)
+	ApproveEvent(ctx context.Context, eventID int) error
+	RejectEvent(ctx context.Context, eventID int) error
 
 	// --- Stats Methods ---
 	GetPublicStats(ctx context.Context) (map[string]int, error)
+
+	// --- Vacancies Methods ---
+	GetAllVacancies(ctx context.Context) ([]*models.Vacancy, error)
+	GetVacancyByID(ctx context.Context, id int) (*models.Vacancy, error)
+
+	// --- Team Members Methods ---
+	GetAllTeamMembers(ctx context.Context) ([]*models.TeamMember, error)
+	GetTeamMemberByID(ctx context.Context, id int) (*models.TeamMember, error)
 
 	// --- SMS Methods ---
 	CheckSMSBalance(ctx context.Context) (*smsProvider.BalanceResult, error)
@@ -158,9 +169,26 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 		// Events routes - волонтёрские события
 		v1.GET("/events", h.middleware.OptionalAccessToken(), h.getAllEvents)
-		v1.POST("/events", h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin), h.createEvent)
+		v1.POST("/events", h.middleware.AuthMiddleware(), h.createEvent)
 		v1.POST("/events/:id/join", h.middleware.AuthMiddleware(), h.joinEvent)
 		v1.DELETE("/events/:id/leave", h.middleware.AuthMiddleware(), h.leaveEvent)
+		
+		v1.GET("/institutions/:id/events", h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin), h.getInstitutionEvents)
+		
+		eventMgmt := v1.Group("/events")
+		eventMgmt.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
+		{
+			eventMgmt.PUT("/:id/approve", h.approveEvent)
+			eventMgmt.PUT("/:id/reject", h.rejectEvent)
+		}
+
+		// Vacancies
+		v1.GET("/vacancies", h.getAllVacancies)
+		v1.GET("/vacancies/:id", h.getVacancyByID)
+
+		// Team Members
+		v1.GET("/team", h.getAllTeamMembers)
+		v1.GET("/team/:id", h.getTeamMemberByID)
 	}
 	return router
 }

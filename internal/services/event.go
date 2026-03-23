@@ -49,13 +49,22 @@ func (s *Service) JoinEvent(ctx context.Context, eventID, userID int) error {
 	return s.repo.JoinEvent(ctx, eventID, userID)
 }
 
-// LeaveEvent отменяет запись на событие
+// LeaveEvent отменяет запись пользователя на событие
 func (s *Service) LeaveEvent(ctx context.Context, eventID, userID int) error {
-	// Проверяем, что событие существует
-	_, err := s.repo.GetEventByID(ctx, eventID)
-	if err != nil {
-		return myerrors.NewBadRequestErr("event not found")
-	}
-
 	return s.repo.LeaveEvent(ctx, eventID, userID)
+}
+
+// GetInstitutionEvents получает события для конкретного учреждения
+func (s *Service) GetInstitutionEvents(ctx context.Context, institutionID int) ([]*models.EventResponse, error) {
+	return s.repo.GetInstitutionEvents(ctx, institutionID)
+}
+
+// ApproveEvent одобряет предложенное событие
+func (s *Service) ApproveEvent(ctx context.Context, eventID int) error {
+	return s.repo.UpdateEventStatus(ctx, eventID, "approved")
+}
+
+// RejectEvent отклоняет предложенное событие
+func (s *Service) RejectEvent(ctx context.Context, eventID int) error {
+	return s.repo.UpdateEventStatus(ctx, eventID, "rejected")
 }
