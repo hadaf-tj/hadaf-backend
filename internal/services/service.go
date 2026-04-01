@@ -64,6 +64,16 @@ type IRepository interface {
 	GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error)
 	JoinEvent(ctx context.Context, eventID, userID int) error
 	LeaveEvent(ctx context.Context, eventID, userID int) error
+	GetInstitutionEvents(ctx context.Context, institutionID int) ([]*models.EventResponse, error)
+	UpdateEventStatus(ctx context.Context, eventID int, status string) error
+
+	// Vacancies
+	GetAllVacancies(ctx context.Context) ([]*models.Vacancy, error)
+	GetVacancyByID(ctx context.Context, id int) (*models.Vacancy, error)
+
+	// Team Members
+	GetAllTeamMembers(ctx context.Context) ([]*models.TeamMember, error)
+	GetTeamMemberByID(ctx context.Context, id int) (*models.TeamMember, error)
 
 	// --- Stats Methods ---
 	GetPublicStats(ctx context.Context) (map[string]int, error)

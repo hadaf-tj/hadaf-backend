@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"shb/internal/models"
 	"shb/pkg/myerrors"
 	"strconv"
@@ -28,6 +29,16 @@ func (h *Handler) createBooking(c *gin.Context) {
 	userIDInt, ok := userID.(int)
 	if !ok {
 		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
+		return
+	}
+
+	// Rate limiting: Max 5 bookings per 1 hour (3600 seconds) per user
+	limitKey := fmt.Sprintf("booking_create:%d", userIDInt)
+	allowed, err := h.limiter.Allow(ctx, limitKey, 5, 3600)
+	if err != nil {
+		h.logger.Error().Err(err).Int("userID", userIDInt).Msg("rate limiter error in createBooking")
+	} else if !allowed {
+		h.handleError(c, myerrors.NewTooManyRequestsErr("Вы достигли лимита создания обещаний. Пожалуйста, попробуйте позже."))
 		return
 	}
 

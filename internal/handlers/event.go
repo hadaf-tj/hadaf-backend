@@ -114,6 +114,7 @@ func (h *Handler) createEvent(c *gin.Context) {
 		EventDate:     eventDate,
 		InstitutionID: input.InstitutionID,
 		CreatorID:     creatorID,
+		Status:        "pending",
 	}
 
 	id, err := h.service.CreateEvent(ctx, event)
@@ -188,3 +189,53 @@ func (h *Handler) leaveEvent(c *gin.Context) {
 
 	h.success(c, "left")
 }
+
+// getInstitutionEvents возвращает список событий для учреждения (модерация)
+func (h *Handler) getInstitutionEvents(c *gin.Context) {
+	ctx := c.Request.Context()
+	instIDStr := c.Param("id")
+	institutionID, err := strconv.Atoi(instIDStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid institution id"))
+		return
+	}
+	events, err := h.service.GetInstitutionEvents(ctx, institutionID)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	h.success(c, events)
+}
+
+// approveEvent одобряет событие
+func (h *Handler) approveEvent(c *gin.Context) {
+	ctx := c.Request.Context()
+	eventIDStr := c.Param("id")
+	eventID, err := strconv.Atoi(eventIDStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid event id"))
+		return
+	}
+	if err := h.service.ApproveEvent(ctx, eventID); err != nil {
+		h.handleError(c, err)
+		return
+	}
+	h.success(c, "approved")
+}
+
+// rejectEvent отклоняет событие
+func (h *Handler) rejectEvent(c *gin.Context) {
+	ctx := c.Request.Context()
+	eventIDStr := c.Param("id")
+	eventID, err := strconv.Atoi(eventIDStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid event id"))
+		return
+	}
+	if err := h.service.RejectEvent(ctx, eventID); err != nil {
+		h.handleError(c, err)
+		return
+	}
+	h.success(c, "rejected")
+}
+

@@ -48,7 +48,7 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, q models.Institutio
 		SELECT 
 			i.id, i.name, i.type, i.city, i.region, i.address, 
 			i.phone, i.email, i.description, i.activity_hours, 
-			i.latitude, i.longitude, i.created_at, i.updated_at,
+			i.latitude, i.longitude, i.wards_count, i.created_at, i.updated_at,
 			(SELECT COUNT(*) FROM needs n WHERE n.institution_id = i.id AND n.is_deleted = false) as needs_count,
 			%s,
 			COUNT(*) OVER() AS total_count
@@ -105,6 +105,8 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, q models.Institutio
 			&i.Phone, &i.Email, &i.Description, &i.ActivityHours,
 			&i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
 			&needsCount, &distance, &total,
+			&i.Latitude, &i.Longitude, &i.WardsCount, &i.CreatedAt, &i.UpdatedAt,
+			&needsCount, &distance,
 		); err != nil {
 			return nil, fmt.Errorf("scan institution: %w", err)
 		}
@@ -160,7 +162,7 @@ func (r *Repository) CreateInstitution(ctx context.Context, i *models.Institutio
 func (r *Repository) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
 	query := `
         SELECT id, name, type, city, region, address, phone, email, description, activity_hours,
-               latitude, longitude, created_at, updated_at, is_deleted, deleted_at
+               latitude, longitude, wards_count, created_at, updated_at, is_deleted, deleted_at
         FROM institutions
         WHERE id = $1
     `
@@ -169,7 +171,7 @@ func (r *Repository) GetInstitutionByID(ctx context.Context, id int) (*models.In
 	err := r.postgres.QueryRow(ctx, query, id).Scan(
 		&dbI.ID, &dbI.Name, &dbI.Type, &dbI.City, &dbI.Region, &dbI.Address,
 		&dbI.Phone, &dbI.Email, &dbI.Description, &dbI.ActivityHours,
-		&dbI.Latitude, &dbI.Longitude, &dbI.CreatedAt, &dbI.UpdatedAt,
+		&dbI.Latitude, &dbI.Longitude, &dbI.WardsCount, &dbI.CreatedAt, &dbI.UpdatedAt,
 		&dbI.IsDeleted, &dbI.DeletedAt,
 	)
 	if err != nil {
