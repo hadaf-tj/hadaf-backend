@@ -6,6 +6,8 @@ import (
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
 	"shb/pkg/myerrors"
+
+	"github.com/rs/zerolog"
 )
 
 // checkPermission implementation...
@@ -41,22 +43,25 @@ func (s *Service) checkPermission(ctx context.Context, institutionID int) error 
 
 // CreateNeed creates a need — institution validation is done before this layer
 func (s *Service) CreateNeed(ctx context.Context, need *models.Need) (int, error) {
+	log := zerolog.Ctx(ctx).With().Str("service", "CreateNeed").Int("institution_id", need.InstitutionID).Logger()
+
 	id, err := s.repo.CreateNeed(ctx, need)
 	if err != nil {
 		return 0, err
 	}
+
+	log.Info().Int("need_id", id).Str("name", need.Name).Msg("need created")
 	return id, nil
 }
 
 func (s *Service) UpdateNeed(ctx context.Context, n *models.Need) error {
-	// 1. Получаем текущее состояние (можно добавить проверку прав s.checkPermission)
+	log := zerolog.Ctx(ctx).With().Str("service", "UpdateNeed").Int("need_id", n.ID).Logger()
+
 	oldNeed, err := s.repo.GetNeedByID(ctx, n.ID)
 	if err != nil {
 		return err
 	}
 
-	// 2. Обновляем запись
-	// Мапим поля, которые пришли, в старую запись (или используем n напрямую, если фронт шлет всё)
 	oldNeed.Name = n.Name
 	oldNeed.Description = n.Description
 	oldNeed.Unit = n.Unit
@@ -68,30 +73,30 @@ func (s *Service) UpdateNeed(ctx context.Context, n *models.Need) error {
 		return err
 	}
 
-	// 3. Пишем историю
 	comment := fmt.Sprintf("Updating data: %s. Progress: %.0f/%.0f", n.Name, n.ReceivedQty, n.RequiredQty)
 	_ = s.repo.CreateNeedHistory(ctx, &models.NeedsHistory{
 		NeedID:  n.ID,
 		Comment: &comment,
 	})
 
+	log.Info().Str("name", n.Name).Msg("need updated")
 	return nil
 }
 
 func (s *Service) DeleteNeed(ctx context.Context, id int) error {
-	// Можно добавить проверку прав здесь
+	log := zerolog.Ctx(ctx).With().Str("service", "DeleteNeed").Int("need_id", id).Logger()
 
 	if err := s.repo.DeleteNeed(ctx, id); err != nil {
 		return err
 	}
 
-	// Пишем историю удаления
 	comment := "Need is deleted (to archive)"
 	_ = s.repo.CreateNeedHistory(ctx, &models.NeedsHistory{
 		NeedID:  id,
 		Comment: &comment,
 	})
 
+	log.Info().Msg("need deleted")
 	return nil
 }
 

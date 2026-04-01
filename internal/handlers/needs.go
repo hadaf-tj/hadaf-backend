@@ -7,9 +7,17 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 )
 
 func (h *Handler) createNeed(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID, _ := c.Get("userID")
+	log := zerolog.Ctx(ctx).With().Str("handler", "createNeed").Int("user_id", userID.(int)).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	var input models.Need
 	if err := c.ShouldBindJSON(&input); err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid input"))
@@ -17,11 +25,9 @@ func (h *Handler) createNeed(c *gin.Context) {
 	}
 
 	// Security: always take institution_id from the JWT, not from request body.
-	// This prevents an employee from creating needs for another institution.
 	role, _ := c.Get("role")
 	if role.(string) != models.RoleSuperAdmin {
-		userID, _ := c.Get("userID")
-		user, err := h.service.GetUserByID(c.Request.Context(), userID.(int))
+		user, err := h.service.GetUserByID(ctx, userID.(int))
 		if err != nil || user.InstitutionID == nil {
 			h.handleError(c, myerrors.NewForbiddenErr("employee is not linked to any institution"))
 			return
@@ -29,18 +35,26 @@ func (h *Handler) createNeed(c *gin.Context) {
 		input.InstitutionID = *user.InstitutionID
 	}
 
-	id, err := h.service.CreateNeed(c.Request.Context(), &input)
+	id, err := h.service.CreateNeed(ctx, &input)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
+
+	log.Debug().Int("need_id", id).Msg("need created")
 	h.success(c, gin.H{"id": id})
 }
 
 func (h *Handler) updateNeed(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
+	userID, _ := c.Get("userID")
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "updateNeed").Int("user_id", userID.(int)).Int("need_id", id).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
 	var input models.Need
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -52,7 +66,6 @@ func (h *Handler) updateNeed(c *gin.Context) {
 	// H5: Ownership check — employee can only edit needs of their own institution
 	role, _ := c.Get("role")
 	if role.(string) != models.RoleSuperAdmin {
-		userID, _ := c.Get("userID")
 		need, err := h.service.GetNeedByID(ctx, id)
 		if err != nil {
 			h.handleError(c, err)
@@ -73,18 +86,25 @@ func (h *Handler) updateNeed(c *gin.Context) {
 		h.handleError(c, err)
 		return
 	}
+
+	log.Debug().Msg("need updated")
 	h.success(c, "updated")
 }
 
 func (h *Handler) deleteNeed(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
+	userID, _ := c.Get("userID")
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "deleteNeed").Int("user_id", userID.(int)).Int("need_id", id).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
 	// H5: Ownership check — employee can only delete needs of their own institution
 	role, _ := c.Get("role")
 	if role.(string) != models.RoleSuperAdmin {
-		userID, _ := c.Get("userID")
 		need, err := h.service.GetNeedByID(ctx, id)
 		if err != nil {
 			h.handleError(c, err)
@@ -105,23 +125,28 @@ func (h *Handler) deleteNeed(c *gin.Context) {
 		h.handleError(c, err)
 		return
 	}
+
+	log.Debug().Msg("need deleted")
 	h.success(c, "deleted")
 }
 
 func (h *Handler) getNeedsByInstitution(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var filter filters.NeedsFilter
-	if err := c.ShouldBindQuery(&filter); err != nil {
-		h.handleError(c, myerrors.NewBadRequestErr("invalid need by institution input"))
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid institution id"))
 		return
 	}
 
-	idStr := c.Param("id") // ID учреждения
-	id, err := strconv.Atoi(idStr)
+	log := zerolog.Ctx(ctx).With().Str("handler", "getNeedsByInstitution").Int("institution_id", id).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
-	if err != nil {
-		h.handleError(c, myerrors.NewBadRequestErr("invalid institution id"))
+	var filter filters.NeedsFilter
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid need by institution input"))
 		return
 	}
 
@@ -130,5 +155,7 @@ func (h *Handler) getNeedsByInstitution(c *gin.Context) {
 		h.handleError(c, err)
 		return
 	}
+
+	log.Debug().Int("count", len(needs)).Msg("needs fetched")
 	h.success(c, needs)
 }

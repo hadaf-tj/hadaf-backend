@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"shb/internal/models"
 	"shb/pkg/myerrors"
+
+	"github.com/rs/zerolog"
 )
 
 func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantity float64, note string) (int, error) {
-	// Validate need exists and is not deleted
+	log := zerolog.Ctx(ctx).With().Str("service", "CreateBooking").Int("user_id", userID).Int("need_id", needID).Logger()
+
 	need, err := s.repo.GetNeedByID(ctx, needID)
 	if err != nil {
 		if errors.Is(err, myerrors.ErrNotFound) {
@@ -18,7 +21,6 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 		return 0, fmt.Errorf("get need: %w", err)
 	}
 
-	// Validate user exists and is active
 	user, err := s.repo.GetUserByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, myerrors.ErrNotFound) {
@@ -30,12 +32,10 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 		return 0, myerrors.NewBadRequestErr("user is not active")
 	}
 
-	// Validate quantity > 0
 	if quantity <= 0 {
 		return 0, myerrors.NewBadRequestErr("quantity must be greater than 0")
 	}
 
-	// Check if user already has an active booking for this need
 	existingBooking, err := s.repo.GetActiveBookingByUserAndNeed(ctx, userID, needID)
 	if err != nil {
 		return 0, fmt.Errorf("check existing booking: %w", err)
@@ -44,7 +44,6 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 		return 0, myerrors.NewConflictErr("у вас уже есть активная заявка на помощь по этой нужде")
 	}
 
-	// Create booking with status "pending"
 	booking := &models.Booking{
 		UserID:   userID,
 		NeedID:   needID,
@@ -58,15 +57,14 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 		return 0, fmt.Errorf("create booking: %w", err)
 	}
 
-	// Fetch institution email from need's institution
+	log.Info().Int("booking_id", bookingID).Float64("quantity", quantity).Msg("booking created")
+
 	institution, err := s.repo.GetInstitutionByID(ctx, need.InstitutionID)
 	if err != nil {
-		s.logger.Error().Ctx(ctx).Err(err).Int("institution_id", need.InstitutionID).Msg("failed to get institution for email")
-		// Don't fail the booking creation if email fetch fails
+		log.Error().Err(err).Int("institution_id", need.InstitutionID).Msg("failed to get institution for email notification")
 		return bookingID, nil
 	}
 
-	// Send email notification to institution director
 	if institution.Email != nil && *institution.Email != "" {
 		userPhone := ""
 		if user.Phone != nil {
@@ -86,18 +84,11 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 Сообщение: %s
 
 Пожалуйста, свяжитесь с волонтером для согласования.`,
-			institution.Name,
-			need.Name,
-			userFullName,
-			userPhone,
-			quantity,
-			need.Unit,
-			note,
+			institution.Name, need.Name, userFullName, userPhone, quantity, need.Unit, note,
 		)
 
 		if err := s.email.SendEmail(ctx, *institution.Email, subject, body); err != nil {
-			s.logger.Error().Ctx(ctx).Err(err).Str("email", *institution.Email).Msg("failed to send booking notification email")
-			// Don't fail the booking creation if email sending fails
+			log.Error().Err(err).Str("email", *institution.Email).Msg("failed to send booking notification email")
 		}
 	}
 
@@ -105,19 +96,18 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 }
 
 func (s *Service) ApproveBooking(ctx context.Context, bookingID, institutionUserID int) error {
-	// Validate booking exists
+	log := zerolog.Ctx(ctx).With().Str("service", "ApproveBooking").Int("booking_id", bookingID).Int("actor_id", institutionUserID).Logger()
+
 	booking, err := s.repo.GetBookingByID(ctx, bookingID)
 	if err != nil {
 		return fmt.Errorf("get booking: %w", err)
 	}
 
-	// Get need to check institution
 	need, err := s.repo.GetNeedByID(ctx, booking.NeedID)
 	if err != nil {
 		return fmt.Errorf("get need: %w", err)
 	}
 
-	// Validate requester is employee/super_admin of the institution
 	requester, err := s.repo.GetUserByID(ctx, institutionUserID)
 	if err != nil {
 		return fmt.Errorf("get requester user: %w", err)
@@ -133,29 +123,27 @@ func (s *Service) ApproveBooking(ctx context.Context, bookingID, institutionUser
 		}
 	}
 
-	// Update status to "approved"
-	err = s.repo.UpdateBookingStatus(ctx, bookingID, models.BookingStatusApproved)
-	if err != nil {
+	if err := s.repo.UpdateBookingStatus(ctx, bookingID, models.BookingStatusApproved); err != nil {
 		return fmt.Errorf("update booking status: %w", err)
 	}
 
+	log.Info().Msg("booking approved")
 	return nil
 }
 
 func (s *Service) RejectBooking(ctx context.Context, bookingID, institutionUserID int) error {
-	// Validate booking exists
+	log := zerolog.Ctx(ctx).With().Str("service", "RejectBooking").Int("booking_id", bookingID).Int("actor_id", institutionUserID).Logger()
+
 	booking, err := s.repo.GetBookingByID(ctx, bookingID)
 	if err != nil {
 		return fmt.Errorf("get booking: %w", err)
 	}
 
-	// Get need to check institution
 	need, err := s.repo.GetNeedByID(ctx, booking.NeedID)
 	if err != nil {
 		return fmt.Errorf("get need: %w", err)
 	}
 
-	// Validate requester is employee/super_admin of the institution
 	requester, err := s.repo.GetUserByID(ctx, institutionUserID)
 	if err != nil {
 		return fmt.Errorf("get requester user: %w", err)
@@ -171,12 +159,51 @@ func (s *Service) RejectBooking(ctx context.Context, bookingID, institutionUserI
 		}
 	}
 
-	// Update status to "rejected"
-	err = s.repo.UpdateBookingStatus(ctx, bookingID, models.BookingStatusRejected)
-	if err != nil {
+	if err := s.repo.UpdateBookingStatus(ctx, bookingID, models.BookingStatusRejected); err != nil {
 		return fmt.Errorf("update booking status: %w", err)
 	}
 
+	log.Info().Msg("booking rejected")
+	return nil
+}
+
+func (s *Service) CompleteBooking(ctx context.Context, bookingID, institutionUserID int) error {
+	log := zerolog.Ctx(ctx).With().Str("service", "CompleteBooking").Int("booking_id", bookingID).Int("actor_id", institutionUserID).Logger()
+
+	booking, err := s.repo.GetBookingByID(ctx, bookingID)
+	if err != nil {
+		return fmt.Errorf("get booking: %w", err)
+	}
+
+	need, err := s.repo.GetNeedByID(ctx, booking.NeedID)
+	if err != nil {
+		return fmt.Errorf("get need: %w", err)
+	}
+
+	requester, err := s.repo.GetUserByID(ctx, institutionUserID)
+	if err != nil {
+		return fmt.Errorf("get requester user: %w", err)
+	}
+
+	if requester.Role != models.RoleSuperAdmin && requester.Role != models.RoleEmployee {
+		return myerrors.NewForbiddenErr("only employees and super admins can complete bookings")
+	}
+
+	if requester.Role == models.RoleEmployee {
+		if requester.InstitutionID == nil || *requester.InstitutionID != need.InstitutionID {
+			return myerrors.NewForbiddenErr("you can only complete bookings for your own institution")
+		}
+	}
+
+	if err := s.repo.UpdateBookingStatus(ctx, bookingID, models.BookingStatusCompleted); err != nil {
+		return fmt.Errorf("update booking status: %w", err)
+	}
+
+	if err := s.repo.IncrementReceivedQty(ctx, booking.NeedID, booking.Quantity); err != nil {
+		return fmt.Errorf("increment received qty: %w", err)
+	}
+
+	log.Info().Float64("quantity", booking.Quantity).Msg("booking completed")
 	return nil
 }
 
@@ -196,51 +223,9 @@ func (s *Service) GetBookingsByUser(ctx context.Context, userID int) ([]*models.
 	return bookings, nil
 }
 
-func (s *Service) CompleteBooking(ctx context.Context, bookingID, institutionUserID int) error {
-	// Validate booking exists
-	booking, err := s.repo.GetBookingByID(ctx, bookingID)
-	if err != nil {
-		return fmt.Errorf("get booking: %w", err)
-	}
-
-	// Get need to check institution
-	need, err := s.repo.GetNeedByID(ctx, booking.NeedID)
-	if err != nil {
-		return fmt.Errorf("get need: %w", err)
-	}
-
-	// Validate requester is employee/super_admin of the institution
-	requester, err := s.repo.GetUserByID(ctx, institutionUserID)
-	if err != nil {
-		return fmt.Errorf("get requester user: %w", err)
-	}
-
-	if requester.Role != models.RoleSuperAdmin && requester.Role != models.RoleEmployee {
-		return myerrors.NewForbiddenErr("only employees and super admins can complete bookings")
-	}
-
-	if requester.Role == models.RoleEmployee {
-		if requester.InstitutionID == nil || *requester.InstitutionID != need.InstitutionID {
-			return myerrors.NewForbiddenErr("you can only complete bookings for your own institution")
-		}
-	}
-
-	// Update status to "completed"
-	err = s.repo.UpdateBookingStatus(ctx, bookingID, models.BookingStatusCompleted)
-	if err != nil {
-		return fmt.Errorf("update booking status: %w", err)
-	}
-
-	// Increment received_qty on the need
-	err = s.repo.IncrementReceivedQty(ctx, booking.NeedID, booking.Quantity)
-	if err != nil {
-		return fmt.Errorf("increment received qty: %w", err)
-	}
-
-	return nil
-}
-
 func (s *Service) CancelMyBooking(ctx context.Context, bookingID int, userID int) error {
+	log := zerolog.Ctx(ctx).With().Str("service", "CancelMyBooking").Int("booking_id", bookingID).Int("user_id", userID).Logger()
+
 	booking, err := s.repo.GetBookingByID(ctx, bookingID)
 	if err != nil {
 		return fmt.Errorf("get booking: %w", err)
@@ -251,14 +236,18 @@ func (s *Service) CancelMyBooking(ctx context.Context, bookingID int, userID int
 	if booking.Status != models.BookingStatusPending {
 		return myerrors.NewBadRequestErr("only pending bookings can be cancelled")
 	}
-	err = s.repo.UpdateBookingStatus(ctx, bookingID, "cancelled")
-	if err != nil {
+
+	if err := s.repo.UpdateBookingStatus(ctx, bookingID, "cancelled"); err != nil {
 		return fmt.Errorf("update booking status: %w", err)
 	}
+
+	log.Info().Msg("booking cancelled")
 	return nil
 }
 
 func (s *Service) UpdateMyBooking(ctx context.Context, bookingID int, userID int, qty float64) error {
+	log := zerolog.Ctx(ctx).With().Str("service", "UpdateMyBooking").Int("booking_id", bookingID).Int("user_id", userID).Logger()
+
 	booking, err := s.repo.GetBookingByID(ctx, bookingID)
 	if err != nil {
 		return fmt.Errorf("get booking: %w", err)
@@ -272,9 +261,11 @@ func (s *Service) UpdateMyBooking(ctx context.Context, bookingID int, userID int
 	if qty <= 0 {
 		return myerrors.NewBadRequestErr("quantity must be greater than 0")
 	}
-	err = s.repo.UpdateBookingQuantity(ctx, bookingID, qty)
-	if err != nil {
+
+	if err := s.repo.UpdateBookingQuantity(ctx, bookingID, qty); err != nil {
 		return fmt.Errorf("update booking quantity: %w", err)
 	}
+
+	log.Info().Float64("quantity", qty).Msg("booking quantity updated")
 	return nil
 }
