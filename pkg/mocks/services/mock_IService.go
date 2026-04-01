@@ -74,6 +74,53 @@ func (_c *MockIService_ApproveBooking_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// ApproveEvent provides a mock function with given fields: ctx, eventID
+func (_m *MockIService) ApproveEvent(ctx context.Context, eventID int) error {
+	ret := _m.Called(ctx, eventID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApproveEvent")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int) error); ok {
+		r0 = rf(ctx, eventID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockIService_ApproveEvent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApproveEvent'
+type MockIService_ApproveEvent_Call struct {
+	*mock.Call
+}
+
+// ApproveEvent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - eventID int
+func (_e *MockIService_Expecter) ApproveEvent(ctx interface{}, eventID interface{}) *MockIService_ApproveEvent_Call {
+	return &MockIService_ApproveEvent_Call{Call: _e.mock.On("ApproveEvent", ctx, eventID)}
+}
+
+func (_c *MockIService_ApproveEvent_Call) Run(run func(ctx context.Context, eventID int)) *MockIService_ApproveEvent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int))
+	})
+	return _c
+}
+
+func (_c *MockIService_ApproveEvent_Call) Return(_a0 error) *MockIService_ApproveEvent_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockIService_ApproveEvent_Call) RunAndReturn(run func(context.Context, int) error) *MockIService_ApproveEvent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CancelMyBooking provides a mock function with given fields: ctx, bookingID, userID
 func (_m *MockIService) CancelMyBooking(ctx context.Context, bookingID int, userID int) error {
 	ret := _m.Called(ctx, bookingID, userID)
@@ -684,6 +731,122 @@ func (_c *MockIService_GetAllInstitutions_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
+// GetAllTeamMembers provides a mock function with given fields: ctx
+func (_m *MockIService) GetAllTeamMembers(ctx context.Context) ([]*models.TeamMember, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllTeamMembers")
+	}
+
+	var r0 []*models.TeamMember
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) ([]*models.TeamMember, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) []*models.TeamMember); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*models.TeamMember)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockIService_GetAllTeamMembers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllTeamMembers'
+type MockIService_GetAllTeamMembers_Call struct {
+	*mock.Call
+}
+
+// GetAllTeamMembers is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockIService_Expecter) GetAllTeamMembers(ctx interface{}) *MockIService_GetAllTeamMembers_Call {
+	return &MockIService_GetAllTeamMembers_Call{Call: _e.mock.On("GetAllTeamMembers", ctx)}
+}
+
+func (_c *MockIService_GetAllTeamMembers_Call) Run(run func(ctx context.Context)) *MockIService_GetAllTeamMembers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockIService_GetAllTeamMembers_Call) Return(_a0 []*models.TeamMember, _a1 error) *MockIService_GetAllTeamMembers_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIService_GetAllTeamMembers_Call) RunAndReturn(run func(context.Context) ([]*models.TeamMember, error)) *MockIService_GetAllTeamMembers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAllVacancies provides a mock function with given fields: ctx
+func (_m *MockIService) GetAllVacancies(ctx context.Context) ([]*models.Vacancy, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllVacancies")
+	}
+
+	var r0 []*models.Vacancy
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) ([]*models.Vacancy, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) []*models.Vacancy); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*models.Vacancy)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockIService_GetAllVacancies_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllVacancies'
+type MockIService_GetAllVacancies_Call struct {
+	*mock.Call
+}
+
+// GetAllVacancies is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockIService_Expecter) GetAllVacancies(ctx interface{}) *MockIService_GetAllVacancies_Call {
+	return &MockIService_GetAllVacancies_Call{Call: _e.mock.On("GetAllVacancies", ctx)}
+}
+
+func (_c *MockIService_GetAllVacancies_Call) Run(run func(ctx context.Context)) *MockIService_GetAllVacancies_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockIService_GetAllVacancies_Call) Return(_a0 []*models.Vacancy, _a1 error) *MockIService_GetAllVacancies_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIService_GetAllVacancies_Call) RunAndReturn(run func(context.Context) ([]*models.Vacancy, error)) *MockIService_GetAllVacancies_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetBookingsByInstitution provides a mock function with given fields: ctx, institutionID
 func (_m *MockIService) GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error) {
 	ret := _m.Called(ctx, institutionID)
@@ -979,6 +1142,65 @@ func (_c *MockIService_GetInstitutionByID_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
+// GetInstitutionEvents provides a mock function with given fields: ctx, institutionID
+func (_m *MockIService) GetInstitutionEvents(ctx context.Context, institutionID int) ([]*models.EventResponse, error) {
+	ret := _m.Called(ctx, institutionID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetInstitutionEvents")
+	}
+
+	var r0 []*models.EventResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int) ([]*models.EventResponse, error)); ok {
+		return rf(ctx, institutionID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int) []*models.EventResponse); ok {
+		r0 = rf(ctx, institutionID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*models.EventResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, institutionID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockIService_GetInstitutionEvents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetInstitutionEvents'
+type MockIService_GetInstitutionEvents_Call struct {
+	*mock.Call
+}
+
+// GetInstitutionEvents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - institutionID int
+func (_e *MockIService_Expecter) GetInstitutionEvents(ctx interface{}, institutionID interface{}) *MockIService_GetInstitutionEvents_Call {
+	return &MockIService_GetInstitutionEvents_Call{Call: _e.mock.On("GetInstitutionEvents", ctx, institutionID)}
+}
+
+func (_c *MockIService_GetInstitutionEvents_Call) Run(run func(ctx context.Context, institutionID int)) *MockIService_GetInstitutionEvents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int))
+	})
+	return _c
+}
+
+func (_c *MockIService_GetInstitutionEvents_Call) Return(_a0 []*models.EventResponse, _a1 error) *MockIService_GetInstitutionEvents_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIService_GetInstitutionEvents_Call) RunAndReturn(run func(context.Context, int) ([]*models.EventResponse, error)) *MockIService_GetInstitutionEvents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetNeedByID provides a mock function with given fields: ctx, id
 func (_m *MockIService) GetNeedByID(ctx context.Context, id int) (*models.Need, error) {
 	ret := _m.Called(ctx, id)
@@ -1156,6 +1378,65 @@ func (_c *MockIService_GetPublicStats_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// GetTeamMemberByID provides a mock function with given fields: ctx, id
+func (_m *MockIService) GetTeamMemberByID(ctx context.Context, id int) (*models.TeamMember, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTeamMemberByID")
+	}
+
+	var r0 *models.TeamMember
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int) (*models.TeamMember, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int) *models.TeamMember); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.TeamMember)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockIService_GetTeamMemberByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTeamMemberByID'
+type MockIService_GetTeamMemberByID_Call struct {
+	*mock.Call
+}
+
+// GetTeamMemberByID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+func (_e *MockIService_Expecter) GetTeamMemberByID(ctx interface{}, id interface{}) *MockIService_GetTeamMemberByID_Call {
+	return &MockIService_GetTeamMemberByID_Call{Call: _e.mock.On("GetTeamMemberByID", ctx, id)}
+}
+
+func (_c *MockIService_GetTeamMemberByID_Call) Run(run func(ctx context.Context, id int)) *MockIService_GetTeamMemberByID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int))
+	})
+	return _c
+}
+
+func (_c *MockIService_GetTeamMemberByID_Call) Return(_a0 *models.TeamMember, _a1 error) *MockIService_GetTeamMemberByID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIService_GetTeamMemberByID_Call) RunAndReturn(run func(context.Context, int) (*models.TeamMember, error)) *MockIService_GetTeamMemberByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetUserByID provides a mock function with given fields: ctx, id
 func (_m *MockIService) GetUserByID(ctx context.Context, id int) (*models.User, error) {
 	ret := _m.Called(ctx, id)
@@ -1211,6 +1492,65 @@ func (_c *MockIService_GetUserByID_Call) Return(_a0 *models.User, _a1 error) *Mo
 }
 
 func (_c *MockIService_GetUserByID_Call) RunAndReturn(run func(context.Context, int) (*models.User, error)) *MockIService_GetUserByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetVacancyByID provides a mock function with given fields: ctx, id
+func (_m *MockIService) GetVacancyByID(ctx context.Context, id int) (*models.Vacancy, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetVacancyByID")
+	}
+
+	var r0 *models.Vacancy
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int) (*models.Vacancy, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int) *models.Vacancy); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.Vacancy)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockIService_GetVacancyByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetVacancyByID'
+type MockIService_GetVacancyByID_Call struct {
+	*mock.Call
+}
+
+// GetVacancyByID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+func (_e *MockIService_Expecter) GetVacancyByID(ctx interface{}, id interface{}) *MockIService_GetVacancyByID_Call {
+	return &MockIService_GetVacancyByID_Call{Call: _e.mock.On("GetVacancyByID", ctx, id)}
+}
+
+func (_c *MockIService_GetVacancyByID_Call) Run(run func(ctx context.Context, id int)) *MockIService_GetVacancyByID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int))
+	})
+	return _c
+}
+
+func (_c *MockIService_GetVacancyByID_Call) Return(_a0 *models.Vacancy, _a1 error) *MockIService_GetVacancyByID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIService_GetVacancyByID_Call) RunAndReturn(run func(context.Context, int) (*models.Vacancy, error)) *MockIService_GetVacancyByID_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1538,6 +1878,53 @@ func (_c *MockIService_RejectBooking_Call) Return(_a0 error) *MockIService_Rejec
 }
 
 func (_c *MockIService_RejectBooking_Call) RunAndReturn(run func(context.Context, int, int) error) *MockIService_RejectBooking_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RejectEvent provides a mock function with given fields: ctx, eventID
+func (_m *MockIService) RejectEvent(ctx context.Context, eventID int) error {
+	ret := _m.Called(ctx, eventID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RejectEvent")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int) error); ok {
+		r0 = rf(ctx, eventID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockIService_RejectEvent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RejectEvent'
+type MockIService_RejectEvent_Call struct {
+	*mock.Call
+}
+
+// RejectEvent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - eventID int
+func (_e *MockIService_Expecter) RejectEvent(ctx interface{}, eventID interface{}) *MockIService_RejectEvent_Call {
+	return &MockIService_RejectEvent_Call{Call: _e.mock.On("RejectEvent", ctx, eventID)}
+}
+
+func (_c *MockIService_RejectEvent_Call) Run(run func(ctx context.Context, eventID int)) *MockIService_RejectEvent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int))
+	})
+	return _c
+}
+
+func (_c *MockIService_RejectEvent_Call) Return(_a0 error) *MockIService_RejectEvent_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockIService_RejectEvent_Call) RunAndReturn(run func(context.Context, int) error) *MockIService_RejectEvent_Call {
 	_c.Call.Return(run)
 	return _c
 }

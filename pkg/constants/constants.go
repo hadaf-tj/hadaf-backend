@@ -30,3 +30,7 @@ const (
 	DefaultPageLimit = 20
 	MaxPageLimit     = 100
 )
+
+const (
+	LocalAppEnv = "local"
+)

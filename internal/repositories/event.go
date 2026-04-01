@@ -98,10 +98,8 @@ func (r *Repository) countEvents(ctx context.Context) (int64, error) {
 
 // GetAllEvents возвращает страницу событий с дополнительными данными.
 func (r *Repository) GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error) {
-// GetAllEvents получает все события с дополнительными данными (публичная лента)
-func (r *Repository) GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error) {
 	query := `
-		SELECT 
+		SELECT
 			e.id,
 			e.title,
 			e.description,
@@ -113,15 +111,12 @@ func (r *Repository) GetAllEvents(ctx context.Context, userID int) ([]*models.Ev
 			(SELECT COUNT(*) FROM event_participants ep WHERE ep.event_id = e.id) as participants_count,
 			EXISTS(SELECT 1 FROM event_participants ep WHERE ep.event_id = e.id AND ep.user_id = $1) as is_joined,
 			e.status,
-			e.created_at
 			e.created_at,
 			COUNT(*) OVER() AS total_count
 		FROM events e
 		JOIN institutions i ON e.institution_id = i.id
 		JOIN users u ON e.creator_id = u.id
 		WHERE e.is_deleted = false AND e.status = 'approved'
-		ORDER BY e.event_date ASC
-		WHERE e.is_deleted = false
 		ORDER BY e.event_date ASC, e.id ASC
 		LIMIT $2 OFFSET $3
 	`
@@ -139,9 +134,8 @@ func (r *Repository) GetAllEvents(ctx context.Context, userID int) ([]*models.Ev
 		var e models.EventResponse
 		if err := rows.Scan(
 			&e.ID, &e.Title, &e.Description, &e.EventDate, &e.InstitutionID, &e.InstitutionName,
-			&e.CreatorID, &e.CreatorName, &e.ParticipantsCount, &e.IsJoined, &e.CreatedAt,
-			&total,
 			&e.CreatorID, &e.CreatorName, &e.ParticipantsCount, &e.IsJoined, &e.Status, &e.CreatedAt,
+			&total,
 		); err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}

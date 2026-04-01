@@ -103,10 +103,8 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, q models.Institutio
 		if err := rows.Scan(
 			&i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
 			&i.Phone, &i.Email, &i.Description, &i.ActivityHours,
-			&i.Latitude, &i.Longitude, &i.CreatedAt, &i.UpdatedAt,
-			&needsCount, &distance, &total,
 			&i.Latitude, &i.Longitude, &i.WardsCount, &i.CreatedAt, &i.UpdatedAt,
-			&needsCount, &distance,
+			&needsCount, &distance, &total,
 		); err != nil {
 			return nil, fmt.Errorf("scan institution: %w", err)
 		}
