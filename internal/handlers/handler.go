@@ -220,10 +220,8 @@ func (h *Handler) RequestID() gin.HandlerFunc {
 
 func (h *Handler) CORSMiddleware() gin.HandlerFunc {
 	allowedOrigins := map[string]bool{
-		"http://89.167.77.120":       true,
-		"http://localhost:3000":      true,
-		"https://admin.valcourt.ru":  true,
-		"https://partner.valcourt.ru": true,
+		"http://89.167.77.120":  true,
+		"http://localhost:3000": true,
 	}
 
 	return func(c *gin.Context) {
