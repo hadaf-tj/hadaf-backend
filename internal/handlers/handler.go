@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -99,9 +100,10 @@ func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middl
 
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
-	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
+	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), middlewares.PrometheusMiddleware())
 	router.NoRoute(h.noRoute)
 
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	router.GET("/ping", h.ping)
 
 	v1 := router.Group("/api/v1")
