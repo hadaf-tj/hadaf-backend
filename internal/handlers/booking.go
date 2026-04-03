@@ -7,36 +7,37 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 )
 
 func (h *Handler) createBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Security: employees cannot create bookings (they manage their own institution)
 	role, _ := c.Get("role")
 	if role.(string) == models.RoleEmployee {
 		h.handleError(c, myerrors.NewForbiddenErr("institution employees cannot create bookings"))
 		return
 	}
 
-	// Extract user ID from JWT token (set by AuthMiddleware)
 	userID, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
 		return
 	}
-
 	userIDInt, ok := userID.(int)
 	if !ok {
 		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
 		return
 	}
 
-	// Rate limiting: Max 5 bookings per 1 hour (3600 seconds) per user
+	log := zerolog.Ctx(ctx).With().Str("handler", "createBooking").Int("user_id", userIDInt).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	limitKey := fmt.Sprintf("booking_create:%d", userIDInt)
 	allowed, err := h.limiter.Allow(ctx, limitKey, 5, 3600)
 	if err != nil {
-		h.logger.Error().Err(err).Int("userID", userIDInt).Msg("rate limiter error in createBooking")
+		log.Error().Err(err).Msg("rate limiter error")
 	} else if !allowed {
 		h.handleError(c, myerrors.NewTooManyRequestsErr("Вы достигли лимита создания обещаний. Пожалуйста, попробуйте позже."))
 		return
@@ -47,7 +48,6 @@ func (h *Handler) createBooking(c *gin.Context) {
 		Quantity float64 `json:"quantity" binding:"required,gt=0"`
 		Note     string  `json:"note"`
 	}
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid input"))
 		return
@@ -59,19 +59,18 @@ func (h *Handler) createBooking(c *gin.Context) {
 		return
 	}
 
+	log.Debug().Int("booking_id", bookingID).Msg("booking created")
 	h.success(c, gin.H{"id": bookingID})
 }
 
 func (h *Handler) approveBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Extract user ID from JWT token
 	userID, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
 		return
 	}
-
 	userIDInt, ok := userID.(int)
 	if !ok {
 		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
@@ -84,25 +83,28 @@ func (h *Handler) approveBooking(c *gin.Context) {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid booking ID"))
 		return
 	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "approveBooking").Int("user_id", userIDInt).Int("booking_id", bookingID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
 	if err := h.service.ApproveBooking(ctx, bookingID, userIDInt); err != nil {
 		h.handleError(c, err)
 		return
 	}
 
+	log.Debug().Msg("booking approved")
 	h.success(c, "booking approved")
 }
 
 func (h *Handler) rejectBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Extract user ID from JWT token
 	userID, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
 		return
 	}
-
 	userIDInt, ok := userID.(int)
 	if !ok {
 		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
@@ -115,25 +117,28 @@ func (h *Handler) rejectBooking(c *gin.Context) {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid booking ID"))
 		return
 	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "rejectBooking").Int("user_id", userIDInt).Int("booking_id", bookingID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
 	if err := h.service.RejectBooking(ctx, bookingID, userIDInt); err != nil {
 		h.handleError(c, err)
 		return
 	}
 
+	log.Debug().Msg("booking rejected")
 	h.success(c, "booking rejected")
 }
 
 func (h *Handler) completeBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Extract user ID from JWT token
 	userID, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
 		return
 	}
-
 	userIDInt, ok := userID.(int)
 	if !ok {
 		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
@@ -147,11 +152,16 @@ func (h *Handler) completeBooking(c *gin.Context) {
 		return
 	}
 
+	log := zerolog.Ctx(ctx).With().Str("handler", "completeBooking").Int("user_id", userIDInt).Int("booking_id", bookingID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	if err := h.service.CompleteBooking(ctx, bookingID, userIDInt); err != nil {
 		h.handleError(c, err)
 		return
 	}
 
+	log.Debug().Msg("booking completed")
 	h.success(c, "booking completed")
 }
 
@@ -165,7 +175,10 @@ func (h *Handler) getInstitutionBookings(c *gin.Context) {
 		return
 	}
 
-	// H3: Ownership check — employee can only view bookings of their own institution
+	log := zerolog.Ctx(ctx).With().Str("handler", "getInstitutionBookings").Int("institution_id", institutionID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	role, _ := c.Get("role")
 	if role.(string) != models.RoleSuperAdmin {
 		userID, _ := c.Get("userID")
@@ -186,24 +199,27 @@ func (h *Handler) getInstitutionBookings(c *gin.Context) {
 		return
 	}
 
+	log.Debug().Int("count", len(bookings)).Msg("institution bookings fetched")
 	h.success(c, bookings)
 }
 
 func (h *Handler) getMyBookings(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Extract user ID from JWT token
 	userID, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
 		return
 	}
-
 	userIDInt, ok := userID.(int)
 	if !ok {
 		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
 		return
 	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "getMyBookings").Int("user_id", userIDInt).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
 	bookings, err := h.service.GetBookingsByUser(ctx, userIDInt)
 	if err != nil {
@@ -211,11 +227,13 @@ func (h *Handler) getMyBookings(c *gin.Context) {
 		return
 	}
 
+	log.Debug().Int("count", len(bookings)).Msg("user bookings fetched")
 	h.success(c, bookings)
 }
 
 func (h *Handler) cancelMyBooking(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	userID, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
@@ -228,17 +246,23 @@ func (h *Handler) cancelMyBooking(c *gin.Context) {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid booking ID"))
 		return
 	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "cancelMyBooking").Int("user_id", userID.(int)).Int("booking_id", bookingID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
 	if err := h.service.CancelMyBooking(ctx, bookingID, userID.(int)); err != nil {
 		h.handleError(c, err)
 		return
 	}
 
+	log.Debug().Msg("booking cancelled")
 	h.success(c, "booking cancelled")
 }
 
 func (h *Handler) updateMyBooking(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	userID, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
@@ -251,6 +275,10 @@ func (h *Handler) updateMyBooking(c *gin.Context) {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid booking ID"))
 		return
 	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "updateMyBooking").Int("user_id", userID.(int)).Int("booking_id", bookingID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
 	var input struct {
 		Quantity float64 `json:"quantity" binding:"required,gt=0"`
@@ -265,5 +293,6 @@ func (h *Handler) updateMyBooking(c *gin.Context) {
 		return
 	}
 
+	log.Debug().Float64("quantity", input.Quantity).Msg("booking updated")
 	h.success(c, "booking updated")
 }

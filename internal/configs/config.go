@@ -142,7 +142,7 @@ func InitConfigs() (*Config, error) {
 	return &Config{
 		App: AppConfig{
 			Port: getEnv("APP_PORT", ":8000"),
-			Env:  getEnv("APP_ENV", "local"),
+			Env:  getEnv("APP_ENV", "prod"),
 		},
 		Security: security,
 		Database: DatabaseConfig{
@@ -151,7 +151,7 @@ func InitConfigs() (*Config, error) {
 		Logger: LoggerConfig{
 			Level:         getEnv("LOG_LEVEL", "debug"),
 			LogPath:       getEnv("LOG_PATH", ""),
-			IncludeCaller: getEnv("INCLUDE_CALLER", ""),
+			IncludeCaller: getEnv("INCLUDE_CALLER", "false"),
 		},
 		SMS: SMSConfig{
 			APIKey:     getEnv("SMS_API_KEY", "mock"),

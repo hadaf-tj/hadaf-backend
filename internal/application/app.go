@@ -40,7 +40,10 @@ func NewApplication() *App {
 	// 2. Map Internal Config to Pkg Config for Logger
 	// (Assuming pkgConfigs.Logger has a 'Level' field)
 	log, err := logger.NewLogger(logger.Config{
-		Level: cfg.Logger.Level,
+		Level:         cfg.Logger.Level,
+		Env:           cfg.App.Env,
+		LogPath:       cfg.Logger.LogPath,
+		IncludeCaller: cfg.Logger.IncludeCaller == "true",
 	})
 	if err != nil {
 		panic("failed to initialize logger: " + err.Error())

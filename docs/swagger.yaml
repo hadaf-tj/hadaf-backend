@@ -14,8 +14,156 @@ servers:
 tags:
   - name: Health
     description: Проверка состояния сервиса
+  - name: Institutions
+    description: Учреждения
+  - name: Events
+    description: События
 
 paths:
+  /institutions:
+    get:
+      tags:
+        - Institutions
+      summary: Список учреждений (пагинация)
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Поиск по названию или городу
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: Тип учреждения или all
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [needs_desc, distance]
+          description: Сортировка
+        - name: lat
+          in: query
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          schema:
+            type: number
+            format: double
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Размер страницы (по умолчанию 20, макс. 100)
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Страница списка
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/InstitutionPage'
+        '400':
+          description: Некорректные limit/offset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+
+  /events:
+    get:
+      tags:
+        - Events
+      summary: Список событий (пагинация)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Страница списка
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/EventPage'
+        '400':
+          description: Некорректные limit/offset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+
+  /events/{id}:
+    get:
+      tags:
+        - Events
+      summary: Событие по ID
+      description: |
+        Опциональный Bearer — для поля is_joined в теле ответа.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - {}
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Карточка события (как элемент списка)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/EventResponseItem'
+        '400':
+          description: Некорректный id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '404':
+          description: Событие не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+
   /ping:
     get:
       tags:
@@ -74,6 +222,42 @@ components:
           type: string
           example: "invalid request body"
 
+    NotFoundError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "not found"
+
+    EventResponseItem:
+      type: object
+      description: Элемент списка / карточка события
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        event_date:
+          type: string
+          format: date-time
+        institution_id:
+          type: integer
+        institution_name:
+          type: string
+        creator_id:
+          type: integer
+        creator_name:
+          type: string
+        participants_count:
+          type: integer
+        is_joined:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
     UnauthorizedError:
       type: object
       properties:
@@ -101,6 +285,46 @@ components:
         message:
           type: string
           example: "phone number is temporarily blocked due to too many requests"
+
+    InstitutionPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required:
+        - items
+        - total
+        - limit
+        - offset
+
+    EventPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required:
+        - items
+        - total
+        - limit
+        - offset
 
 security:
   - BearerAuth: []

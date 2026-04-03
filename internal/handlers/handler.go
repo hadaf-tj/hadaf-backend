@@ -30,7 +30,7 @@ type IService interface {
 	Register(ctx context.Context, email, phone, password, fullName, role string, institutionID *int) (*models.TokenResponse, error)
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
 
-	GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error)
+	GetAllInstitutions(ctx context.Context, q models.InstitutionListQuery) (*models.InstitutionPage, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
 
@@ -51,7 +51,8 @@ type IService interface {
 
 	// --- Event Methods ---
 	CreateEvent(ctx context.Context, e *models.Event) (int, error)
-	GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error)
+	GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error)
+	GetEventDetail(ctx context.Context, q models.EventDetailQuery) (*models.EventResponse, error)
 	GetEventByID(ctx context.Context, id int) (*models.Event, error)
 	JoinEvent(ctx context.Context, eventID, userID int) error
 	LeaveEvent(ctx context.Context, eventID, userID int) error
@@ -169,12 +170,13 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 		// Events routes - волонтёрские события
 		v1.GET("/events", h.middleware.OptionalAccessToken(), h.getAllEvents)
-		v1.POST("/events", h.middleware.AuthMiddleware(), h.createEvent)
+		v1.GET("/events/:id", h.middleware.OptionalAccessToken(), h.getEventByID)
+		v1.POST("/events", h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin), h.createEvent)
 		v1.POST("/events/:id/join", h.middleware.AuthMiddleware(), h.joinEvent)
 		v1.DELETE("/events/:id/leave", h.middleware.AuthMiddleware(), h.leaveEvent)
-		
+
 		v1.GET("/institutions/:id/events", h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin), h.getInstitutionEvents)
-		
+
 		eventMgmt := v1.Group("/events")
 		eventMgmt.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
 		{
@@ -213,6 +215,8 @@ func (h *Handler) success(c *gin.Context, data any) {
 }
 
 func (h *Handler) handleError(c *gin.Context, err error) {
+	log := zerolog.Ctx(c.Request.Context())
+
 	badReq := &myerrors.BadRequestErr{}
 	forbidden := &myerrors.ForbiddenErr{}
 	unprocessable := &myerrors.UnprocessableErr{}
@@ -221,19 +225,29 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 	conflict := &myerrors.ConflictErr{}
 
 	switch {
+	case errors.Is(err, myerrors.ErrNotFound):
+		log.Warn().Err(err).Msg("not found")
+		c.JSON(http.StatusNotFound, gin.H{"message": myerrors.ErrNotFound.Error()})
 	case errors.As(err, unprocessable):
+		log.Warn().Err(err).Msg("unprocessable entity")
 		c.JSON(http.StatusUnprocessableEntity, unprocessable)
 	case errors.As(err, badReq):
+		log.Warn().Err(err).Msg("bad request")
 		c.JSON(http.StatusBadRequest, badReq)
 	case errors.As(err, forbidden):
+		log.Warn().Err(err).Msg("forbidden")
 		c.JSON(http.StatusForbidden, forbidden)
 	case errors.As(err, unauth):
+		log.Warn().Err(err).Msg("unauthorized")
 		c.JSON(http.StatusUnauthorized, unauth)
 	case errors.As(err, manyReq):
+		log.Warn().Err(err).Msg("too many requests")
 		c.JSON(http.StatusTooManyRequests, manyReq)
 	case errors.As(err, conflict):
+		log.Warn().Err(err).Msg("conflict")
 		c.JSON(http.StatusConflict, conflict)
 	default:
+		log.Error().Err(err).Msg("internal server error")
 		c.JSON(http.StatusInternalServerError, myerrors.InternalError())
 	}
 	c.Abort()
@@ -247,6 +261,8 @@ func (h *Handler) RequestID() gin.HandlerFunc {
 		}
 		ctx := c.Request.Context()
 		ctx = context.WithValue(ctx, constants.RequestIDKey, requestID)
+		log := h.logger.With().Str("request_id", requestID).Logger()
+		ctx = log.WithContext(ctx)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}

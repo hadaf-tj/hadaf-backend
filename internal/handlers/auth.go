@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 )
 
 // setTokenCookies sets httpOnly cookies for access and refresh tokens
@@ -148,6 +149,9 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 
 func (h *Handler) register(c *gin.Context) {
 	ctx := c.Request.Context()
+	log := zerolog.Ctx(ctx).With().Str("handler", "register").Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
 	// H5: Registration Rate Limit (IP-based) to prevent automated bot storm
 	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
@@ -155,7 +159,7 @@ func (h *Handler) register(c *gin.Context) {
 		ipKey := fmt.Sprintf("register_ip:%s", c.ClientIP())
 		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600) // Max 3 registrations per hour per IP
 		if err != nil {
-			h.logger.Error().Err(err).Msg("rate limiter error for register")
+			log.Error().Err(err).Msg("rate limiter error for register")
 		}
 		if !allowed {
 			h.handleError(c, myerrors.NewTooManyRequestsErr("Слишком много попыток регистрации с вашего адреса. Попробуйте через час."))
@@ -165,17 +169,15 @@ func (h *Handler) register(c *gin.Context) {
 
 	// Структура запроса
 	in := struct {
-		Email    string `json:"email" binding:"required,email"` // Email обязателен
-		Phone    string `json:"phone"`                          // Телефон опционален
-		Password string `json:"password" binding:"required"`
-		FullName string `json:"full_name" binding:"required"`
-		// Используем указатель *int, чтобы можно было передать null (для волонтеров)
+		Email         string `json:"email" binding:"required,email"` // Email обязателен
+		Phone         string `json:"phone"`                          // Телефон опционален
+		Password      string `json:"password" binding:"required"`
+		FullName      string `json:"full_name" binding:"required"`
 		InstitutionID *int   `json:"institution_id"`
 		Role          string `json:"role" binding:"required"` // 'volunteer' или 'institution'
 	}{}
 
 	if err := c.ShouldBindJSON(&in); err != nil {
-		h.logger.Warn().Err(err).Msg("invalid register input")
 		h.handleError(c, myerrors.NewBadRequestErr("invalid input parameters"))
 		return
 	}
@@ -194,13 +196,13 @@ func (h *Handler) register(c *gin.Context) {
 
 	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
 
-	// Вызываем сервис
 	_, err := h.service.Register(ctx, in.Email, in.Phone, in.Password, in.FullName, in.Role, in.InstitutionID)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
 
+	log.Debug().Str("email", in.Email).Str("role", in.Role).Msg("user registered")
 	h.success(c, gin.H{
 		"message": "verification_required",
 		"email":   in.Email,
@@ -292,11 +294,14 @@ func (h *Handler) refreshTokens(c *gin.Context) {
 // logout clears httpOnly auth cookies and revokes refresh tokens in DB
 func (h *Handler) logout(c *gin.Context) {
 	ctx := c.Request.Context()
+	log := zerolog.Ctx(ctx).With().Str("handler", "logout").Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	userID, exists := c.Get("userID")
 	if exists {
-		// Revoke all tokens for this user
 		if err := h.service.RevokeAllUserRefreshTokens(ctx, userID.(int)); err != nil {
-			h.logger.Error().Err(err).Int("userID", userID.(int)).Msg("failed to revoke tokens on logout")
+			log.Error().Err(err).Int("user_id", userID.(int)).Msg("failed to revoke tokens on logout")
 		}
 	}
 
@@ -321,6 +326,7 @@ func (h *Handler) logout(c *gin.Context) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
+	log.Debug().Msg("user logged out")
 	h.success(c, gin.H{"message": "logged out"})
 }
 

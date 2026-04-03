@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 )
 
 // CreateEventInput - структура для входных данных создания события
@@ -21,7 +22,6 @@ type CreateEventInput struct {
 func (h *Handler) getAllEvents(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Получаем ID текущего пользователя (если авторизован)
 	userID := 0
 	if id, exists := c.Get("userID"); exists {
 		if uid, ok := id.(int); ok {
@@ -29,19 +29,68 @@ func (h *Handler) getAllEvents(c *gin.Context) {
 		}
 	}
 
-	events, err := h.service.GetAllEvents(ctx, userID)
+	log := zerolog.Ctx(ctx).With().Str("handler", "getAllEvents").Int("user_id", userID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
+	limit, offset, err := parseLimitOffset(c)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
-	h.success(c, events)
+
+	page, err := h.service.GetAllEvents(ctx, models.EventListQuery{
+		UserID: userID,
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	log.Debug().Int64("total", page.Total).Msg("events fetched")
+	h.success(c, page)
+}
+
+func (h *Handler) getEventByID(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	idStr := c.Param("id")
+	eventID, err := strconv.Atoi(idStr)
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid id"))
+		return
+	}
+
+	userID := 0
+	if id, exists := c.Get("userID"); exists {
+		if uid, ok := id.(int); ok {
+			userID = uid
+		}
+	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "getEventByID").Int("event_id", eventID).Int("user_id", userID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
+	ev, err := h.service.GetEventDetail(ctx, models.EventDetailQuery{
+		EventID:      eventID,
+		ViewerUserID: userID,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	log.Debug().Msg("event fetched")
+	h.success(c, ev)
 }
 
 // createEvent создаёт новое событие
 func (h *Handler) createEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Получаем ID создателя из context (установлено middleware)
 	creatorIDRaw, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
@@ -53,6 +102,10 @@ func (h *Handler) createEvent(c *gin.Context) {
 		return
 	}
 
+	log := zerolog.Ctx(ctx).With().Str("handler", "createEvent").Int("user_id", creatorID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	var input CreateEventInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid input"))
@@ -62,7 +115,6 @@ func (h *Handler) createEvent(c *gin.Context) {
 	// Парсим дату
 	eventDate, err := time.Parse(time.RFC3339, input.EventDate)
 	if err != nil {
-		// Пробуем альтернативный формат
 		eventDate, err = time.Parse("2006-01-02T15:04:05", input.EventDate)
 		if err != nil {
 			h.handleError(c, myerrors.NewBadRequestErr("invalid date format, use ISO 8601"))
@@ -85,6 +137,7 @@ func (h *Handler) createEvent(c *gin.Context) {
 		return
 	}
 
+	log.Debug().Int("event_id", id).Msg("event created")
 	h.success(c, gin.H{"id": id})
 }
 
@@ -92,7 +145,6 @@ func (h *Handler) createEvent(c *gin.Context) {
 func (h *Handler) joinEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Получаем ID пользователя
 	userIDRaw, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
@@ -104,7 +156,6 @@ func (h *Handler) joinEvent(c *gin.Context) {
 		return
 	}
 
-	// Получаем ID события
 	eventIDStr := c.Param("id")
 	eventID, err := strconv.Atoi(eventIDStr)
 	if err != nil {
@@ -112,11 +163,16 @@ func (h *Handler) joinEvent(c *gin.Context) {
 		return
 	}
 
+	log := zerolog.Ctx(ctx).With().Str("handler", "joinEvent").Int("user_id", userID).Int("event_id", eventID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	if err := h.service.JoinEvent(ctx, eventID, userID); err != nil {
 		h.handleError(c, err)
 		return
 	}
 
+	log.Debug().Msg("user joined event")
 	h.success(c, "joined")
 }
 
@@ -124,7 +180,6 @@ func (h *Handler) joinEvent(c *gin.Context) {
 func (h *Handler) leaveEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// Получаем ID пользователя
 	userIDRaw, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
@@ -136,68 +191,95 @@ func (h *Handler) leaveEvent(c *gin.Context) {
 		return
 	}
 
-	// Получаем ID события
 	eventIDStr := c.Param("id")
 	eventID, err := strconv.Atoi(eventIDStr)
 	if err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid event id"))
 		return
 	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "leaveEvent").Int("user_id", userID).Int("event_id", eventID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
 
 	if err := h.service.LeaveEvent(ctx, eventID, userID); err != nil {
 		h.handleError(c, err)
 		return
 	}
 
+	log.Debug().Msg("user left event")
 	h.success(c, "left")
 }
 
 // getInstitutionEvents возвращает список событий для учреждения (модерация)
 func (h *Handler) getInstitutionEvents(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	instIDStr := c.Param("id")
 	institutionID, err := strconv.Atoi(instIDStr)
 	if err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid institution id"))
 		return
 	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "getInstitutionEvents").Int("institution_id", institutionID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	events, err := h.service.GetInstitutionEvents(ctx, institutionID)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
+
+	log.Debug().Int("count", len(events)).Msg("institution events fetched")
 	h.success(c, events)
 }
 
 // approveEvent одобряет событие
 func (h *Handler) approveEvent(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	eventIDStr := c.Param("id")
 	eventID, err := strconv.Atoi(eventIDStr)
 	if err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid event id"))
 		return
 	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "approveEvent").Int("event_id", eventID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	if err := h.service.ApproveEvent(ctx, eventID); err != nil {
 		h.handleError(c, err)
 		return
 	}
+
+	log.Debug().Msg("event approved")
 	h.success(c, "approved")
 }
 
 // rejectEvent отклоняет событие
 func (h *Handler) rejectEvent(c *gin.Context) {
 	ctx := c.Request.Context()
+
 	eventIDStr := c.Param("id")
 	eventID, err := strconv.Atoi(eventIDStr)
 	if err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid event id"))
 		return
 	}
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "rejectEvent").Int("event_id", eventID).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	if err := h.service.RejectEvent(ctx, eventID); err != nil {
 		h.handleError(c, err)
 		return
 	}
+
+	log.Debug().Msg("event rejected")
 	h.success(c, "rejected")
 }
-

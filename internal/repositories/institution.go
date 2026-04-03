@@ -6,20 +6,41 @@ import (
 	"shb/internal/models"
 )
 
-func (r *Repository) GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error) {
-	// Базовый SELECT с подсчетом активных нужд
-	// Если переданы координаты (не 0), считаем дистанцию (в километрах) по формуле Haversine
+func (r *Repository) countInstitutions(ctx context.Context, q models.InstitutionListQuery) (int64, error) {
+	query := `SELECT COUNT(*) FROM institutions i WHERE i.is_deleted = false`
 	var args []interface{}
 	idx := 1
 
-	distanceSelect := "0 as distance"
-	if userLat != 0 && userLng != 0 {
+	if q.Search != "" {
+		query += fmt.Sprintf(" AND (i.name ILIKE $%d OR i.city ILIKE $%d)", idx, idx)
+		args = append(args, "%"+q.Search+"%")
+		idx++
+	}
+	if q.Type != "" && q.Type != "all" {
+		query += fmt.Sprintf(" AND i.type = $%d", idx)
+		args = append(args, q.Type)
+	}
+
+	var total int64
+	err := r.postgres.QueryRow(ctx, query, args...).Scan(&total)
+	if err != nil {
+		return 0, fmt.Errorf("count institutions: %w", err)
+	}
+	return total, nil
+}
+
+func (r *Repository) GetAllInstitutions(ctx context.Context, q models.InstitutionListQuery) (*models.InstitutionPage, error) {
+	var args []interface{}
+	idx := 1
+
+	distanceSelect := "0::double precision as distance"
+	if q.UserLat != 0 && q.UserLng != 0 {
 		distanceSelect = fmt.Sprintf(`
 			(6371 * acos(
 				cos(radians($%d)) * cos(radians(latitude)) * cos(radians(longitude) - radians($%d)) + 
 				sin(radians($%d)) * sin(radians(latitude))
 			)) as distance`, idx, idx+1, idx)
-		args = append(args, userLat, userLng)
+		args = append(args, q.UserLat, q.UserLng)
 		idx += 2
 	}
 
@@ -29,39 +50,39 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, search string, iTyp
 			i.phone, i.email, i.description, i.activity_hours, 
 			i.latitude, i.longitude, i.wards_count, i.created_at, i.updated_at,
 			(SELECT COUNT(*) FROM needs n WHERE n.institution_id = i.id AND n.is_deleted = false) as needs_count,
-			%s
+			%s,
+			COUNT(*) OVER() AS total_count
 		FROM institutions i
 		WHERE i.is_deleted = false
 	`, distanceSelect)
 
-	// 1. Поиск (Название ИЛИ Город)
-	if search != "" {
+	if q.Search != "" {
 		query += fmt.Sprintf(" AND (i.name ILIKE $%d OR i.city ILIKE $%d)", idx, idx)
-		args = append(args, "%"+search+"%")
+		args = append(args, "%"+q.Search+"%")
 		idx++
 	}
 
-	// 2. Фильтр по типу
-	if iType != "" && iType != "all" {
+	if q.Type != "" && q.Type != "all" {
 		query += fmt.Sprintf(" AND i.type = $%d", idx)
-		args = append(args, iType)
+		args = append(args, q.Type)
 		idx++
 	}
 
-	// 3. Сортировка
-	switch sortBy {
-	case "needs_desc": // Сначала те, у кого больше нужд
+	switch q.SortBy {
+	case "needs_desc":
 		query += " ORDER BY needs_count DESC, i.id DESC"
-	case "distance": // Сначала ближайшие
-		if userLat != 0 && userLng != 0 {
-			query += " ORDER BY distance ASC"
+	case "distance":
+		if q.UserLat != 0 && q.UserLng != 0 {
+			query += " ORDER BY distance ASC, i.id ASC"
 		} else {
-			query += " ORDER BY i.id DESC" // Фоллбэк
+			query += " ORDER BY i.id DESC"
 		}
 	default:
-		// По умолчанию просто новые
 		query += " ORDER BY i.id DESC"
 	}
+
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", idx, idx+1)
+	args = append(args, q.Limit, q.Offset)
 
 	r.logger.Debug().Str("query", query).Msg("GetAllInstitutions SQL")
 
@@ -71,35 +92,46 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, search string, iTyp
 	}
 	defer rows.Close()
 
-	var institutions []*models.Institution
+	institutions := make([]*models.Institution, 0)
+	var total int64
+
 	for rows.Next() {
 		var i dbInstitution
-    	var needsCount int
-  		var distance float64
+		var needsCount int
+		var distance float64
 
-		// ВАЖНО: Порядок переменных должен строго соответствовать порядку в SELECT
 		if err := rows.Scan(
 			&i.ID, &i.Name, &i.Type, &i.City, &i.Region, &i.Address,
 			&i.Phone, &i.Email, &i.Description, &i.ActivityHours,
 			&i.Latitude, &i.Longitude, &i.WardsCount, &i.CreatedAt, &i.UpdatedAt,
-			&needsCount, &distance,
+			&needsCount, &distance, &total,
 		); err != nil {
 			return nil, fmt.Errorf("scan institution: %w", err)
 		}
 
-		// Используем маппер
 		domainInst := i.ToDomain()
 		domainInst.NeedsCount = needsCount
 		institutions = append(institutions, domainInst)
 	}
 
-	
-
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows iteration: %w", err)
 	}
 
-	return institutions, nil
+	if len(institutions) == 0 {
+		var errCount error
+		total, errCount = r.countInstitutions(ctx, q)
+		if errCount != nil {
+			return nil, errCount
+		}
+	}
+
+	return &models.InstitutionPage{
+		Items:  institutions,
+		Total:  total,
+		Limit:  q.Limit,
+		Offset: q.Offset,
+	}, nil
 }
 
 // CreateInstitution вставляет новое учреждение в базу
@@ -144,6 +176,5 @@ func (r *Repository) GetInstitutionByID(ctx context.Context, id int) (*models.In
 		return nil, fmt.Errorf("get institution by id: %w", err)
 	}
 
-	// Конвертируем dbInstitution → models.Institution через маппер
 	return dbI.ToDomain(), nil
 }

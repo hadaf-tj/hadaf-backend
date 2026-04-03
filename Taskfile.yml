@@ -1,0 +1,104 @@
+# https://taskfile.dev
+version: "3"
+
+vars:
+  GO_MODULE: shb
+  COVER_PKG: ./internal/services/...
+  COVER_MIN: "85"
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  install-tools:
+    desc: Install dev tools (mockery, golangci-lint) into GOPATH/bin
+    cmds:
+      - go install github.com/vektra/mockery/v2@v2.53.6
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    summary: |
+      Add $(go env GOPATH)/bin to PATH.
+      mockery version matches generated mocks; pin golangci in CI if needed.
+
+  deps:
+    desc: Download Go module dependencies
+    cmds:
+      - go mod download
+      - go mod verify
+
+  mock:
+    desc: Regenerate testify mocks (mockery)
+    cmds:
+      - mockery
+
+  generate:
+    desc: Alias for mock
+    cmds:
+      - task: mock
+
+  build:
+    desc: Build all packages
+    cmds:
+      - go build ./...
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./... -count=1
+
+  test:service:
+    desc: Run service layer tests only
+    cmds:
+      - go test {{.COVER_PKG}} -count=1
+
+  test:coverage:
+    desc: Print coverage for internal/services (target ≥85%)
+    cmds:
+      - go test {{.COVER_PKG}} -cover -coverprofile=coverage.out
+      - go tool cover -func=coverage.out | tail -1
+    summary: |
+      Produces coverage.out in repo root for IDE/tools.
+
+  test:coverage:html:
+    desc: HTML coverage report for services (opens coverage.html)
+    cmds:
+      - go test {{.COVER_PKG}} -coverprofile=coverage.out
+      - go tool cover -html=coverage.out -o coverage.html
+
+  lint:
+    desc: Run golangci-lint on entire module
+    cmds:
+      - golangci-lint run ./...
+
+  lint:service:
+    desc: Lint internal/services only (faster)
+    cmds:
+      - golangci-lint run ./internal/services/...
+
+  fmt:
+    desc: Format all Go packages (go fmt)
+    cmds:
+      - go fmt ./...
+
+  docker:up:
+    desc: Start docker compose stack (postgres, redis, minio, app)
+    cmds:
+      - docker compose up -d
+
+  docker:down:
+    desc: Stop docker compose stack
+    cmds:
+      - docker compose down
+
+  docker:logs:
+    desc: Tail app container logs
+    cmds:
+      - docker compose logs -f app
+
+  ci:
+    desc: Lint services + all tests + service coverage (local CI gate)
+    cmds:
+      - task: lint:service
+      - task: test
+      - task: test:coverage

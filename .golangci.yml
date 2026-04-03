@@ -1,0 +1,28 @@
+# Compatible with golangci-lint v1 and v2; upgrade CLI via: task install-tools
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - misspell
+
+linters-settings:
+  errcheck:
+    check-blank: false
+
+issues:
+  exclude-rules:
+    - path: pkg/mocks/
+      linters: [errcheck, staticcheck, unused]
+    - path: _test\.go
+      linters: [errcheck]
+    - path: permission_internal_test\.go
+      text: "SA1029"

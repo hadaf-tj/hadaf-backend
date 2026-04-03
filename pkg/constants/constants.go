@@ -24,3 +24,13 @@ const (
 const (
 	SSLModeDisable = "disable"
 )
+
+// Пагинация списков (GET /institutions, GET /events).
+const (
+	DefaultPageLimit = 20
+	MaxPageLimit     = 100
+)
+
+const (
+	LocalAppEnv = "local"
+)

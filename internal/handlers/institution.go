@@ -6,56 +6,78 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 )
 
 func (h *Handler) getAllInstitutions(c *gin.Context) {
 	ctx := c.Request.Context()
-	
-	// Читаем параметры
-	search := c.Query("search") // Поиск по имени или городу
-	iType := c.Query("type")    // Тип
-	sortBy := c.Query("sort")   // 'needs_desc' или 'distance'
-	
-	// Координаты пользователя (если он разрешил геолокацию)
+
+	search := c.Query("search")
+	iType := c.Query("type")
+	sortBy := c.Query("sort")
 	latStr := c.Query("lat")
 	lngStr := c.Query("lng")
-	
+
 	var lat, lng float64
 	if latStr != "" && lngStr != "" {
 		lat, _ = strconv.ParseFloat(latStr, 64)
 		lng, _ = strconv.ParseFloat(lngStr, 64)
 	}
 
-	institutions, err := h.service.GetAllInstitutions(ctx, search, iType, lat, lng, sortBy)
+	limit, offset, err := parseLimitOffset(c)
 	if err != nil {
-		h.logger.Error().Err(err).Msg("failed to get institutions")
-		h.handleError(c, myerrors.ErrGeneral)
+		h.handleError(c, err)
 		return
 	}
 
-	h.success(c, institutions)
+	log := zerolog.Ctx(ctx).With().Str("handler", "getAllInstitutions").Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
+	page, err := h.service.GetAllInstitutions(ctx, models.InstitutionListQuery{
+		Search:  search,
+		Type:    iType,
+		UserLat: lat,
+		UserLng: lng,
+		SortBy:  sortBy,
+		Limit:   limit,
+		Offset:  offset,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	log.Debug().Int64("total", page.Total).Msg("institutions fetched")
+	h.success(c, page)
 }
 
 func (h *Handler) createInstitution(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	log := zerolog.Ctx(ctx).With().Str("handler", "createInstitution").Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
 	var input models.Institution
 	if err := c.ShouldBindJSON(&input); err != nil {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid input"))
 		return
 	}
 
-	// Валидацию можно добавить здесь или в сервисе
-
-	id, err := h.service.CreateInstitution(c.Request.Context(), &input)
+	id, err := h.service.CreateInstitution(ctx, &input)
 	if err != nil {
-		h.logger.Error().Err(err).Msg("failed to create institution")
-		h.handleError(c, myerrors.ErrGeneral)
+		h.handleError(c, err)
 		return
 	}
 
+	log.Debug().Int("institution_id", id).Msg("institution created")
 	h.success(c, gin.H{"id": id})
 }
 
 func (h *Handler) getInstitutionByID(c *gin.Context) {
+	ctx := c.Request.Context()
+
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -63,13 +85,16 @@ func (h *Handler) getInstitutionByID(c *gin.Context) {
 		return
 	}
 
-	institution, err := h.service.GetInstitutionByID(c.Request.Context(), id)
+	log := zerolog.Ctx(ctx).With().Str("handler", "getInstitutionByID").Int("institution_id", id).Logger()
+	ctx = log.WithContext(ctx)
+	c.Request = c.Request.WithContext(ctx)
+
+	institution, err := h.service.GetInstitutionByID(ctx, id)
 	if err != nil {
-		// Здесь можно добавить проверку на sql.ErrNoRows и возвращать 404
-		h.logger.Error().Err(err).Int("id", id).Msg("failed to get institution")
-		h.handleError(c, myerrors.ErrGeneral)
+		h.handleError(c, err)
 		return
 	}
 
+	log.Debug().Msg("institution fetched")
 	h.success(c, institution)
 }
