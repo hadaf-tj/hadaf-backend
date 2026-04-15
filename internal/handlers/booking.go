@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package handlers
 
 import (
@@ -39,7 +42,7 @@ func (h *Handler) createBooking(c *gin.Context) {
 	if err != nil {
 		log.Error().Err(err).Msg("rate limiter error")
 	} else if !allowed {
-		h.handleError(c, myerrors.NewTooManyRequestsErr("Вы достигли лимита создания обещаний. Пожалуйста, попробуйте позже."))
+		h.handleError(c, myerrors.NewTooManyRequestsErr("ERR_RATE_LIMIT_BOOKING"))
 		return
 	}
 

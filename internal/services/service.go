@@ -1,7 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package services
 
 import (
 	"context"
+	"time"
+
 	"shb/internal/configs"
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
@@ -10,28 +15,30 @@ import (
 	"shb/pkg/external/fs"
 	"shb/pkg/external/sms"
 	"shb/pkg/tokens"
-	"time"
 
 	"github.com/rs/zerolog"
 )
 
-// IRepository описывает методы доступа к БД.
+// IRepository defines the data access layer contract used by the service layer.
 type IRepository interface {
-	// GetUserByPhone возвращает пользователя по номеру телефона.
+	// GetUserByPhone returns the user that matches the given phone number.
 	GetUserByPhone(ctx context.Context, phone string) (*models.User, error)
+	// GetUserByEmail returns the user that matches the given email address.
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	// GetUserByID returns the user identified by the given primary key.
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
-	// CreateUser создаёт нового пользователя.
+	// CreateUser persists a new user record to the database.
 	CreateUser(ctx context.Context, user *models.User) error
+	// ActivateUser marks the user account as active.
 	ActivateUser(ctx context.Context, id int) error
 
-	// SaveOTP сохраняет новый OTP-код в базу данных.
+	// SaveOTP persists a new OTP record to the database.
 	SaveOTP(ctx context.Context, o *models.OTP) (int, error)
-	// GetOTP получает последний активный и неподтверждённый OTP-код по номеру телефона.
+	// GetOTP retrieves the latest active, unverified OTP for the given receiver.
 	GetOTP(ctx context.Context, phone string) (*models.OTP, error)
-	// MarkOTPAsVerified отмечает OTP-код как подтверждённый.
+	// MarkOTPAsVerified marks an OTP record as verified.
 	MarkOTPAsVerified(ctx context.Context, otpID int) error
-	// IncreaseOTPAttempt увеличивает счётчик попыток ввода OTP-кода.
+	// IncreaseOTPAttempt increments the failed-attempt counter on an OTP record.
 	IncreaseOTPAttempt(ctx context.Context, otpID int, phone string) error
 
 	// --- Institution Methods ---
@@ -67,15 +74,15 @@ type IRepository interface {
 	GetInstitutionEvents(ctx context.Context, institutionID int) ([]*models.EventResponse, error)
 	UpdateEventStatus(ctx context.Context, eventID int, status string) error
 
-	// Vacancies
+	// --- Vacancies ---
 	GetAllVacancies(ctx context.Context) ([]*models.Vacancy, error)
 	GetVacancyByID(ctx context.Context, id int) (*models.Vacancy, error)
 
-	// Team Members
+	// --- Team Members ---
 	GetAllTeamMembers(ctx context.Context) ([]*models.TeamMember, error)
 	GetTeamMemberByID(ctx context.Context, id int) (*models.TeamMember, error)
 
-	// --- Stats Methods ---
+	// --- Stats ---
 	GetPublicStats(ctx context.Context) (map[string]int, error)
 
 	CreateNeedHistory(ctx context.Context, history *models.NeedsHistory) error
@@ -86,8 +93,11 @@ type IRepository interface {
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
 }
+
+// Service is the application service layer that coordinates business logic
+// across the repository, cache, external adapters, and token provider.
 type Service struct {
-	cfg    *configs.ServiceConfig // CHANGED: from configs.Service to configs.ServiceConfig
+	cfg    *configs.ServiceConfig
 	logger *zerolog.Logger
 	repo   IRepository
 	cache  cache.ICache
@@ -97,6 +107,7 @@ type Service struct {
 	email  email.IEmailAdapter
 }
 
+// NewService constructs a Service with all required dependencies injected.
 func NewService(cfg *configs.ServiceConfig, log *zerolog.Logger, repo IRepository, cache cache.ICache,
 	sms sms.ISmsAdapter, token tokens.ITokenIssuer, fs fs.Storage, email email.IEmailAdapter) *Service {
 	return &Service{

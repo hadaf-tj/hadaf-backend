@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package services
 
 import (
@@ -13,7 +16,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// CreateEvent создаёт новое событие
+// CreateEvent creates a new volunteer event. The event date must be in the
+// future and the referenced institution must exist.
 func (s *Service) CreateEvent(ctx context.Context, e *models.Event) (int, error) {
 	log := zerolog.Ctx(ctx).With().Str("service", "CreateEvent").Int("creator_id", e.CreatorID).Logger()
 
@@ -34,17 +38,18 @@ func (s *Service) CreateEvent(ctx context.Context, e *models.Event) (int, error)
 	return id, nil
 }
 
-// GetAllEvents получает страницу событий.
+// GetAllEvents retrieves a paginated list of events.
 func (s *Service) GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error) {
 	return s.repo.GetAllEvents(ctx, q)
 }
 
-// GetEventByID получает событие по ID
+// GetEventByID retrieves a single event by its primary key.
 func (s *Service) GetEventByID(ctx context.Context, id int) (*models.Event, error) {
 	return s.repo.GetEventByID(ctx, id)
 }
 
-// GetEventDetail возвращает карточку события (как в списке).
+// GetEventDetail returns the full event card including join status for the
+// requesting user.
 func (s *Service) GetEventDetail(ctx context.Context, q models.EventDetailQuery) (*models.EventResponse, error) {
 	ev, err := s.repo.GetEventDetail(ctx, q)
 	if err != nil {
@@ -56,7 +61,8 @@ func (s *Service) GetEventDetail(ctx context.Context, q models.EventDetailQuery)
 	return ev, nil
 }
 
-// JoinEvent записывает пользователя на событие
+// JoinEvent registers a user for an upcoming event. Past events cannot be
+// joined.
 func (s *Service) JoinEvent(ctx context.Context, eventID, userID int) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "JoinEvent").Int("event_id", eventID).Int("user_id", userID).Logger()
 
@@ -77,7 +83,7 @@ func (s *Service) JoinEvent(ctx context.Context, eventID, userID int) error {
 	return nil
 }
 
-// LeaveEvent отменяет запись пользователя на событие
+// LeaveEvent cancels a user's registration for an event.
 func (s *Service) LeaveEvent(ctx context.Context, eventID, userID int) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "LeaveEvent").Int("event_id", eventID).Int("user_id", userID).Logger()
 
@@ -93,12 +99,13 @@ func (s *Service) LeaveEvent(ctx context.Context, eventID, userID int) error {
 	return nil
 }
 
-// GetInstitutionEvents получает события для конкретного учреждения (для модерации)
+// GetInstitutionEvents returns all events associated with a given institution
+// (used by institution staff for moderation).
 func (s *Service) GetInstitutionEvents(ctx context.Context, institutionID int) ([]*models.EventResponse, error) {
 	return s.repo.GetInstitutionEvents(ctx, institutionID)
 }
 
-// ApproveEvent одобряет предложенное событие
+// ApproveEvent transitions a pending event to the approved state.
 func (s *Service) ApproveEvent(ctx context.Context, eventID int) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "ApproveEvent").Int("event_id", eventID).Logger()
 	if err := s.repo.UpdateEventStatus(ctx, eventID, "approved"); err != nil {
@@ -108,7 +115,7 @@ func (s *Service) ApproveEvent(ctx context.Context, eventID int) error {
 	return nil
 }
 
-// RejectEvent отклоняет предложенное событие
+// RejectEvent transitions a pending event to the rejected state.
 func (s *Service) RejectEvent(ctx context.Context, eventID int) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "RejectEvent").Int("event_id", eventID).Logger()
 	if err := s.repo.UpdateEventStatus(ctx, eventID, "rejected"); err != nil {

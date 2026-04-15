@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package repositories
 
 import (
@@ -12,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// GetUserByPhone ищет пользователя по телефону
+// GetUserByPhone finds a user by phone.
 func (r *Repository) GetUserByPhone(ctx context.Context, phone string) (*models.User, error) {
 	query := `
 		SELECT id, institution_id, full_name, phone, email, password, role, is_active, is_approved, created_at, updated_at
@@ -35,7 +38,7 @@ func (r *Repository) GetUserByPhone(ctx context.Context, phone string) (*models.
 	return u.ToDomain(), nil
 }
 
-// GetUserByID ищет пользователя по ID
+// GetUserByID finds a user by ID.
 func (r *Repository) GetUserByID(ctx context.Context, id int) (*models.User, error) {
 	query := `
 		SELECT id, institution_id, full_name, phone, email, password, role, is_active, is_approved, created_at, updated_at
@@ -58,7 +61,7 @@ func (r *Repository) GetUserByID(ctx context.Context, id int) (*models.User, err
 	return u.ToDomain(), nil
 }
 
-// CreateUser создает нового пользователя
+// CreateUser creates a new user.
 func (r *Repository) CreateUser(ctx context.Context, u *models.User) error {
 	query := `
 		INSERT INTO users (institution_id, full_name, phone, email, password, role, is_active, is_approved, updated_at)
@@ -82,7 +85,7 @@ func (r *Repository) ActivateUser(ctx context.Context, id int) error {
 }
 
 func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	// 1. Нормализуем email
+	// 1. Normalize email
 	email = strings.ToLower(strings.TrimSpace(email))
 
 	const query = `

@@ -1,8 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package services
 
 import (
 	"context"
 	"fmt"
+
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
 	"shb/pkg/myerrors"
@@ -10,7 +14,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// checkPermission implementation...
+// checkPermission verifies that the calling user is allowed to manage needs
+// for the given institution. Super-admins pass unconditionally; employees must
+// belong to the institution.
 func (s *Service) checkPermission(ctx context.Context, institutionID int) error {
 	role, ok := ctx.Value("role").(string)
 	if !ok {
@@ -41,7 +47,8 @@ func (s *Service) checkPermission(ctx context.Context, institutionID int) error 
 	return nil
 }
 
-// CreateNeed creates a need — institution validation is done before this layer
+// CreateNeed persists a new need for the given institution. Institution
+// ownership validation is handled at the handler layer before this call.
 func (s *Service) CreateNeed(ctx context.Context, need *models.Need) (int, error) {
 	log := zerolog.Ctx(ctx).With().Str("service", "CreateNeed").Int("institution_id", need.InstitutionID).Logger()
 
@@ -54,6 +61,8 @@ func (s *Service) CreateNeed(ctx context.Context, need *models.Need) (int, error
 	return id, nil
 }
 
+// UpdateNeed applies field-level updates to an existing need and records a
+// history entry describing the change.
 func (s *Service) UpdateNeed(ctx context.Context, n *models.Need) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "UpdateNeed").Int("need_id", n.ID).Logger()
 
@@ -83,6 +92,7 @@ func (s *Service) UpdateNeed(ctx context.Context, n *models.Need) error {
 	return nil
 }
 
+// DeleteNeed soft-deletes a need and records an archive history entry.
 func (s *Service) DeleteNeed(ctx context.Context, id int) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "DeleteNeed").Int("need_id", id).Logger()
 
@@ -100,10 +110,13 @@ func (s *Service) DeleteNeed(ctx context.Context, id int) error {
 	return nil
 }
 
+// GetNeedsByInstitution returns all needs belonging to the specified institution,
+// filtered by the provided criteria.
 func (s *Service) GetNeedsByInstitution(ctx context.Context, filter filters.NeedsFilter, institutionID int) ([]*models.Need, error) {
 	return s.repo.GetNeedsByInstitution(ctx, filter, institutionID)
 }
 
+// GetNeedByID retrieves a single need by its primary key.
 func (s *Service) GetNeedByID(ctx context.Context, id int) (*models.Need, error) {
 	return s.repo.GetNeedByID(ctx, id)
 }

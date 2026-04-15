@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package handlers
 
 import (
@@ -8,7 +11,7 @@ import (
 	myerrors "shb/pkg/myerrors"
 )
 
-// getAllVacancies возвращает список всех вакансий
+// getAllVacancies returns all vacancies.
 func (h *Handler) getAllVacancies(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -20,7 +23,7 @@ func (h *Handler) getAllVacancies(c *gin.Context) {
 	h.success(c, vacancies)
 }
 
-// getVacancyByID возвращает подробную информацию о вакансии
+// getVacancyByID returns the details of a single vacancy.
 func (h *Handler) getVacancyByID(c *gin.Context) {
 	ctx := c.Request.Context()
 

@@ -1,0 +1,40 @@
+# EditorConfig — https://editorconfig.org
+
+root = true
+
+# ─── All files ────────────────────────────────────────────────────────────────
+[*]
+charset             = utf-8
+end_of_line         = lf
+insert_final_newline  = true
+trim_trailing_whitespace = true
+
+# ─── Go source files (tabs, official gofmt style) ────────────────────────────
+[*.go]
+indent_style = tab
+indent_size  = 4
+
+# ─── JSON, YAML, TOML, Markdown (2-space indent) ─────────────────────────────
+[*.{json,yaml,yml,toml,md}]
+indent_style = space
+indent_size  = 2
+
+# ─── Makefiles and Taskfiles (tabs required) ─────────────────────────────────
+[{Makefile,Taskfile.yml}]
+indent_style = tab
+indent_size  = 4
+
+# ─── Shell scripts ────────────────────────────────────────────────────────────
+[*.sh]
+indent_style = space
+indent_size  = 2
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+[Dockerfile]
+indent_style = space
+indent_size  = 4
+
+# ─── SQL migration files ──────────────────────────────────────────────────────
+[*.sql]
+indent_style = space
+indent_size  = 4

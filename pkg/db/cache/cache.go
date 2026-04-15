@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package cache
 
 import (
@@ -5,17 +8,17 @@ import (
 	"time"
 )
 
-// ICache определяет контракт для работы с кэшем (например, Redis).
+// ICache defines the cache contract (e.g., Redis).
 type ICache interface {
-	// Set устанавливает значение по ключу с заданным временем жизни.
+	// Set stores a value under the given key with the specified TTL.
 	Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error
 
-	// Get возвращает строковое значение по ключу.
+	// Get retrieves the string value stored under the given key.
 	Get(ctx context.Context, key string) (string, error)
 
-	// Delete удаляет значение по ключу.
+	// Delete removes the value stored under the given key.
 	Delete(ctx context.Context, key string) error
 
-	// Increment увеличивает числовое значение по ключу на 1 (например, для счётчиков).
+	// Increment atomically increments the numeric value stored under the given key by 1.
 	Increment(ctx context.Context, key string) error
 }

@@ -1,15 +1,22 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package services
 
 import (
 	"context"
 	"errors"
 	"fmt"
+
 	"shb/internal/models"
 	"shb/pkg/myerrors"
 
 	"github.com/rs/zerolog"
 )
 
+// CreateBooking registers a volunteer's intent to fulfill a specific need.
+// It validates the need, the user state, and prevents duplicate active bookings.
+// On success it sends an email notification to the institution asynchronously.
 func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantity float64, note string) (int, error) {
 	log := zerolog.Ctx(ctx).With().Str("service", "CreateBooking").Int("user_id", userID).Int("need_id", needID).Logger()
 
@@ -41,7 +48,7 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 		return 0, fmt.Errorf("check existing booking: %w", err)
 	}
 	if existingBooking != nil {
-		return 0, myerrors.NewConflictErr("у вас уже есть активная заявка на помощь по этой нужде")
+		return 0, myerrors.NewConflictErr("ERR_BOOKING_ALREADY_EXISTS")
 	}
 
 	booking := &models.Booking{
@@ -75,15 +82,15 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 			userFullName = *user.FullName
 		}
 
-		subject := "Новый волонтер готов помочь"
-		body := fmt.Sprintf(`Учреждение: %s
-Нужда: %s
-Волонтер: %s
-Телефон: %s
-Количество: %.2f %s
-Сообщение: %s
+		subject := "New volunteer is ready to help"
+		body := fmt.Sprintf(`Institution: %s
+Need: %s
+Volunteer: %s
+Phone: %s
+Quantity: %.2f %s
+Message: %s
 
-Пожалуйста, свяжитесь с волонтером для согласования.`,
+Please contact the volunteer to coordinate.`,
 			institution.Name, need.Name, userFullName, userPhone, quantity, need.Unit, note,
 		)
 
@@ -95,6 +102,8 @@ func (s *Service) CreateBooking(ctx context.Context, userID, needID int, quantit
 	return bookingID, nil
 }
 
+// ApproveBooking marks a booking as approved. Only employees of the owning
+// institution or super-admins may perform this action.
 func (s *Service) ApproveBooking(ctx context.Context, bookingID, institutionUserID int) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "ApproveBooking").Int("booking_id", bookingID).Int("actor_id", institutionUserID).Logger()
 
@@ -131,6 +140,8 @@ func (s *Service) ApproveBooking(ctx context.Context, bookingID, institutionUser
 	return nil
 }
 
+// RejectBooking marks a booking as rejected. Only employees of the owning
+// institution or super-admins may perform this action.
 func (s *Service) RejectBooking(ctx context.Context, bookingID, institutionUserID int) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "RejectBooking").Int("booking_id", bookingID).Int("actor_id", institutionUserID).Logger()
 
@@ -167,6 +178,9 @@ func (s *Service) RejectBooking(ctx context.Context, bookingID, institutionUserI
 	return nil
 }
 
+// CompleteBooking marks a booking as completed and increments the need's
+// received quantity. Only employees of the owning institution or super-admins
+// may perform this action.
 func (s *Service) CompleteBooking(ctx context.Context, bookingID, institutionUserID int) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "CompleteBooking").Int("booking_id", bookingID).Int("actor_id", institutionUserID).Logger()
 
@@ -207,6 +221,8 @@ func (s *Service) CompleteBooking(ctx context.Context, bookingID, institutionUse
 	return nil
 }
 
+// GetBookingsByInstitution returns all bookings associated with the given
+// institution's needs.
 func (s *Service) GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error) {
 	bookings, err := s.repo.GetBookingsByInstitution(ctx, institutionID)
 	if err != nil {
@@ -215,6 +231,7 @@ func (s *Service) GetBookingsByInstitution(ctx context.Context, institutionID in
 	return bookings, nil
 }
 
+// GetBookingsByUser returns all bookings created by the given user.
 func (s *Service) GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error) {
 	bookings, err := s.repo.GetBookingsByUser(ctx, userID)
 	if err != nil {
@@ -223,6 +240,7 @@ func (s *Service) GetBookingsByUser(ctx context.Context, userID int) ([]*models.
 	return bookings, nil
 }
 
+// CancelMyBooking allows a volunteer to cancel their own pending booking.
 func (s *Service) CancelMyBooking(ctx context.Context, bookingID int, userID int) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "CancelMyBooking").Int("booking_id", bookingID).Int("user_id", userID).Logger()
 
@@ -245,6 +263,8 @@ func (s *Service) CancelMyBooking(ctx context.Context, bookingID int, userID int
 	return nil
 }
 
+// UpdateMyBooking allows a volunteer to change the quantity on their own
+// pending booking.
 func (s *Service) UpdateMyBooking(ctx context.Context, bookingID int, userID int, qty float64) error {
 	log := zerolog.Ctx(ctx).With().Str("service", "UpdateMyBooking").Int("booking_id", bookingID).Int("user_id", userID).Logger()
 
