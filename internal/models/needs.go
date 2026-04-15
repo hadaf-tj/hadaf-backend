@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package models
 
 import "time"
@@ -23,5 +26,5 @@ type UpdateNeedInput struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 	Priority    *string `json:"priority"`
-	// Используем указатели (*string), чтобы понимать, какие поля обновлять (nil = не обновлять)
+	// Pointer fields allow partial updates: nil means "do not update this field".
 }

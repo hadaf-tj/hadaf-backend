@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package application
 
 import (
@@ -72,7 +75,7 @@ func NewApplication() *App {
 
 	limiter := customLimiter.NewRateLimiter(redis)
 
-	// 3. SMS (Мапим конфиг)
+	// 3. SMS (Map config)
 	sms := smsProvider.NewSMSProvider(smsProvider.SMSConfig{
 		APIKey:     cfg.SMS.APIKey,
 		SenderName: cfg.SMS.SenderName,
@@ -89,7 +92,7 @@ func NewApplication() *App {
 		cfg.Security.RefreshTokenTTL,
 	)
 
-	// 4. Middleware (Передаем секрет)
+	// 4. Middleware (Pass secret)
 	middleware := middlewares.NewMiddleware(cfg.Security.JWTSecretKey)
 
 	repository := repositories.NewRepository(postgresConn, &log.Logger)
@@ -100,7 +103,7 @@ func NewApplication() *App {
 
 	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
 
-	// 5. Server (Мапим конфиг)
+	// 5. Server (Map config)
 	readTimeout, _ := time.ParseDuration(cfg.Server.ReadTimeout)
 	writeTimeout, _ := time.ParseDuration(cfg.Server.WriteTimeout)
 
@@ -108,7 +111,7 @@ func NewApplication() *App {
 		Port:         cfg.Server.Port,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
-	}, handler.InitRoutes()) // Внимание: NewServer в pkg/server теперь принимает handler http.Handler
+	}, handler.InitRoutes()) // Note: NewServer in pkg/server now accepts an http.Handler
 
 	return &App{
 		config: cfg,

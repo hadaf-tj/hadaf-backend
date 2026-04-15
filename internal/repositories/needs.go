@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package repositories
 
 import (
@@ -85,7 +88,7 @@ func (r *Repository) GetNeedsByInstitution(ctx context.Context, filter filters.N
 	filterQuery, args := filters.GetNeedsByInstitution(filter, institutionID)
 	query += filterQuery
 
-	// Логируем запрос для отладки
+	// Log the query for debugging
 	r.logger.Info().Str("query", query).Interface("args", args).Msg("Fetching needs DB")
 
 	rows, err := r.postgres.Query(ctx, query, args...)
@@ -94,8 +97,8 @@ func (r *Repository) GetNeedsByInstitution(ctx context.Context, filter filters.N
 	}
 	defer rows.Close()
 
-	// ВАЖНО: Инициализируем как пустой слайс, а не nil. 
-	// Тогда в JSON это будет [], а не null.
+	// IMPORTANT: Initialize as empty slice, not nil. 
+	// This ensures it serializes to [] in JSON instead of null.
 	needs := make([]*models.Need, 0)
 
 	for rows.Next() {

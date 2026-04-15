@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package repositories
 
 import (
@@ -134,7 +137,7 @@ func (r *Repository) GetAllInstitutions(ctx context.Context, q models.Institutio
 	}, nil
 }
 
-// CreateInstitution вставляет новое учреждение в базу
+// CreateInstitution inserts a new institution into the database.
 func (r *Repository) CreateInstitution(ctx context.Context, i *models.Institution) (int, error) {
 	query := `
 		INSERT INTO institutions 
@@ -156,7 +159,7 @@ func (r *Repository) CreateInstitution(ctx context.Context, i *models.Institutio
 	return id, nil
 }
 
-// GetInstitutionByID получает учреждение по ID
+// GetInstitutionByID retrieves an institution by ID.
 func (r *Repository) GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error) {
 	query := `
         SELECT id, name, type, city, region, address, phone, email, description, activity_hours,

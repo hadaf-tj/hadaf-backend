@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package logger
 
 import (
@@ -12,11 +15,11 @@ type Logger struct {
 	zerolog.Logger
 }
 
-// Config определяем прямо тут, чтобы не зависеть от внешних пакетов
+// Config holds logger configuration. Defined locally to avoid external package dependencies.
 type Config struct {
 	Level         string
 	Env           string // "local", "prod", etc.
-	LogPath       string // путь к файлу, напр. "logs/app.log"
+	LogPath       string // path to log file, e.g. "logs/app.log"
 	IncludeCaller bool
 }
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package handlers
 
 import (
@@ -10,7 +13,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// CreateEventInput - структура для входных данных создания события
+// CreateEventInput holds the request body for creating a new event.
 type CreateEventInput struct {
 	Title         string `json:"title" binding:"required"`
 	Description   string `json:"description"`
@@ -18,7 +21,7 @@ type CreateEventInput struct {
 	InstitutionID int    `json:"institution_id" binding:"required"`
 }
 
-// getAllEvents возвращает список всех событий
+// getAllEvents returns a paginated list of all events.
 func (h *Handler) getAllEvents(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -87,7 +90,7 @@ func (h *Handler) getEventByID(c *gin.Context) {
 	h.success(c, ev)
 }
 
-// createEvent создаёт новое событие
+// createEvent creates a new volunteer event.
 func (h *Handler) createEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -112,7 +115,7 @@ func (h *Handler) createEvent(c *gin.Context) {
 		return
 	}
 
-	// Парсим дату
+	// Parse the event date from ISO 8601 format.
 	eventDate, err := time.Parse(time.RFC3339, input.EventDate)
 	if err != nil {
 		eventDate, err = time.Parse("2006-01-02T15:04:05", input.EventDate)
@@ -141,7 +144,7 @@ func (h *Handler) createEvent(c *gin.Context) {
 	h.success(c, gin.H{"id": id})
 }
 
-// joinEvent записывает пользователя на событие
+// joinEvent registers the authenticated user for an event.
 func (h *Handler) joinEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -176,7 +179,7 @@ func (h *Handler) joinEvent(c *gin.Context) {
 	h.success(c, "joined")
 }
 
-// leaveEvent отменяет запись пользователя на событие
+// leaveEvent cancels the authenticated user's registration for an event.
 func (h *Handler) leaveEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -211,7 +214,7 @@ func (h *Handler) leaveEvent(c *gin.Context) {
 	h.success(c, "left")
 }
 
-// getInstitutionEvents возвращает список событий для учреждения (модерация)
+// getInstitutionEvents returns all events associated with a given institution.
 func (h *Handler) getInstitutionEvents(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -236,7 +239,7 @@ func (h *Handler) getInstitutionEvents(c *gin.Context) {
 	h.success(c, events)
 }
 
-// approveEvent одобряет событие
+// approveEvent transitions a pending event to the approved state.
 func (h *Handler) approveEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -260,7 +263,7 @@ func (h *Handler) approveEvent(c *gin.Context) {
 	h.success(c, "approved")
 }
 
-// rejectEvent отклоняет событие
+// rejectEvent transitions a pending event to the rejected state.
 func (h *Handler) rejectEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 

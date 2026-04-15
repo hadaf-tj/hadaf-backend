@@ -1,19 +1,23 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package handlers
 
 import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
+
 	"shb/internal/models"
 	"shb/pkg/myerrors"
 	"shb/pkg/utils"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
 
-// setTokenCookies sets httpOnly cookies for access and refresh tokens
+// setTokenCookies writes httpOnly cookies for the access and refresh tokens.
 func (h *Handler) setTokenCookies(c *gin.Context, tokens *models.TokenResponse) {
 	accessMaxAge := int(h.cfg.Security.AccessTokenTTL.Seconds())
 	refreshMaxAge := int(h.cfg.Security.RefreshTokenTTL.Seconds())
@@ -144,7 +148,7 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 
 	logger.Debug().Str("receiver", in.Receiver).Msg("OTP confirmed successfully")
 	h.setTokenCookies(c, response)
-	h.success(c, nil) // Don't send tokens in body
+	h.success(c, nil) // Tokens are set as httpOnly cookies; not returned in the body.
 }
 
 func (h *Handler) register(c *gin.Context) {
@@ -153,28 +157,27 @@ func (h *Handler) register(c *gin.Context) {
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
-	// H5: Registration Rate Limit (IP-based) to prevent automated bot storm
+	// Apply rate limiting only in non-local environments.
 	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
 	if !isLocal {
 		ipKey := fmt.Sprintf("register_ip:%s", c.ClientIP())
-		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600) // Max 3 registrations per hour per IP
+		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600) // Max 3 registrations per hour per IP.
 		if err != nil {
 			log.Error().Err(err).Msg("rate limiter error for register")
 		}
 		if !allowed {
-			h.handleError(c, myerrors.NewTooManyRequestsErr("Слишком много попыток регистрации с вашего адреса. Попробуйте через час."))
+			h.handleError(c, myerrors.NewTooManyRequestsErr("ERR_RATE_LIMIT_REGISTRATION"))
 			return
 		}
 	}
 
-	// Структура запроса
 	in := struct {
-		Email         string `json:"email" binding:"required,email"` // Email обязателен
-		Phone         string `json:"phone"`                          // Телефон опционален
+		Email         string `json:"email" binding:"required,email"`
+		Phone         string `json:"phone"`
 		Password      string `json:"password" binding:"required"`
 		FullName      string `json:"full_name" binding:"required"`
 		InstitutionID *int   `json:"institution_id"`
-		Role          string `json:"role" binding:"required"` // 'volunteer' или 'institution'
+		Role          string `json:"role" binding:"required"`
 	}{}
 
 	if err := c.ShouldBindJSON(&in); err != nil {
@@ -182,13 +185,13 @@ func (h *Handler) register(c *gin.Context) {
 		return
 	}
 
-	// C5: Validate password — minimum 8 characters
+	// Validate password — minimum 8 characters.
 	if len(in.Password) < 8 {
 		h.handleError(c, myerrors.NewBadRequestErr("password must be at least 8 characters"))
 		return
 	}
 
-	// M4: Validate role — only allow safe values
+	// Validate role — only allow safe values.
 	if in.Role != "volunteer" && in.Role != "employee" {
 		h.handleError(c, myerrors.NewBadRequestErr("invalid role: must be volunteer or employee"))
 		return
@@ -214,7 +217,7 @@ func (h *Handler) login(c *gin.Context) {
 	logger := h.logger.With().Ctx(ctx).Str("handler", "login").Logger()
 
 	in := struct {
-		Email    string `json:"email" binding:"required,email"` // Теперь Email
+		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required"`
 	}{}
 
@@ -224,17 +227,17 @@ func (h *Handler) login(c *gin.Context) {
 		return
 	}
 
-	// Запускаем лимитер ТОЛЬКО если мы не на локалке
+	// Apply rate limiting only in non-local environments.
 	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
 	if !isLocal {
-		// H4: Rate limit login — max 5 attempts per 15 minutes per email
+		// Rate limit login — max 5 attempts per 15 minutes per email.
 		loginKey := fmt.Sprintf("login:%s", in.Email)
-		allowed, err := h.limiter.Allow(ctx, loginKey, 5, 900) // 900 seconds = 15 min
+		allowed, err := h.limiter.Allow(ctx, loginKey, 5, 900) // 900 seconds = 15 min.
 		if err != nil {
 			logger.Error().Err(err).Msg("rate limiter error")
 		}
 		if !allowed {
-			h.handleError(c, myerrors.NewTooManyRequestsErr("Слишком много попыток. Повторите позже"))
+			h.handleError(c, myerrors.NewTooManyRequestsErr("ERR_RATE_LIMIT_LOGIN"))
 			return
 		}
 	}
@@ -248,30 +251,29 @@ func (h *Handler) login(c *gin.Context) {
 
 	logger.Debug().Str("email", in.Email).Msg("login successfully")
 	h.setTokenCookies(c, response)
-	h.success(c, nil) // Don't send tokens in body
+	h.success(c, nil) // Tokens are set as httpOnly cookies; not returned in the body.
 }
 
-// refreshTokens handles refresh token rotation
+// refreshTokens handles refresh token rotation.
 func (h *Handler) refreshTokens(c *gin.Context) {
 	ctx := c.Request.Context()
 	logger := h.logger.With().Ctx(ctx).Str("handler", "refreshTokens").Logger()
 
-	// Rate limit refresh attempts to prevent abuse
+	// Apply rate limiting only in non-local environments.
 	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
 	if !isLocal {
-		// Use IP for refresh limiting to avoid hammered endpoints
+		// Use IP for refresh limiting to prevent endpoint hammering.
 		ipKey := fmt.Sprintf("refresh_ip:%s", c.ClientIP())
-		allowed, err := h.limiter.Allow(ctx, ipKey, 10, 60) // Max 10 refreshes per minute per IP
+		allowed, err := h.limiter.Allow(ctx, ipKey, 10, 60) // Max 10 refreshes per minute per IP.
 		if err != nil {
 			logger.Error().Err(err).Msg("rate limiter error for refresh")
 		}
 		if !allowed {
-			h.handleError(c, myerrors.NewTooManyRequestsErr("Слишком частое обновление токенов. Подождите минуту."))
+			h.handleError(c, myerrors.NewTooManyRequestsErr("ERR_RATE_LIMIT_REFRESH"))
 			return
 		}
 	}
 
-	// Get refresh token from cookie
 	cookie, err := c.Request.Cookie("refresh_token")
 	if err != nil {
 		logger.Warn().Msg("refresh token cookie missing")
@@ -288,10 +290,11 @@ func (h *Handler) refreshTokens(c *gin.Context) {
 
 	logger.Debug().Msg("tokens refreshed successfully")
 	h.setTokenCookies(c, response)
-	h.success(c, nil) // Don't send tokens in body
+	h.success(c, nil) // Tokens are set as httpOnly cookies; not returned in the body.
 }
 
-// logout clears httpOnly auth cookies and revokes refresh tokens in DB
+// logout clears httpOnly auth cookies and revokes all active refresh tokens
+// for the user in the database.
 func (h *Handler) logout(c *gin.Context) {
 	ctx := c.Request.Context()
 	log := zerolog.Ctx(ctx).With().Str("handler", "logout").Logger()
@@ -330,23 +333,21 @@ func (h *Handler) logout(c *gin.Context) {
 	h.success(c, gin.H{"message": "logged out"})
 }
 
-// getMe возвращает профиль текущего пользователя
+// getMe returns the authenticated user's profile.
 func (h *Handler) getMe(c *gin.Context) {
-	// 1. Получаем userID из контекста (его туда положил AuthMiddleware)
 	userID, exists := c.Get("userID")
 	if !exists {
 		h.handleError(c, myerrors.NewUnauthorizedErr("user id not found in context"))
 		return
 	}
 
-	// 2. Идем в базу
 	user, err := h.service.GetUserByID(c.Request.Context(), userID.(int))
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
 
-	// 3. Зачищаем пароль перед отправкой (на всякий случай)
+	// Clear the password hash before sending the response.
 	user.Password = nil
 
 	h.success(c, user)

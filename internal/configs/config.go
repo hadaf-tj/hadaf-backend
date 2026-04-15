@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package configs
 
 import (
@@ -90,7 +93,7 @@ type MinioConfig struct {
 	SecretKey string
 }
 
-// Helper для чтения ENV с дефолтным значением
+// Helper to read ENV with a default value.
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
@@ -109,21 +112,21 @@ func requireEnv(key string) string {
 
 // InitConfigs loads the configuration
 func InitConfigs() (*Config, error) {
-	// Читаем переменные для PostgreSQL
+	// Read PostgreSQL variables
 	pgUser := getEnv("POSTGRES_USER", "postgres")
 	pgPass := requireEnv("POSTGRES_PASSWORD")
-	pgHost := getEnv("POSTGRES_HOST", "localhost") // В Docker будет "postgres"
+	pgHost := getEnv("POSTGRES_HOST", "localhost") // "postgres" in Docker
 	pgPort := getEnv("POSTGRES_PORT", "5432")
 	pgDB := getEnv("POSTGRES_DB", "shb")
 
-	// Формируем DSN строку
+	// Build DSN string
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		pgUser, pgPass, pgHost, pgPort, pgDB)
 
-	// Читаем настройки Redis (важно для pkg/db/cache/redisClient)
-	// Примечание: Если redisClient сам читает REDIS_HOST через os.Getenv, это сработает.
-	// Если он берет конфиг отсюда - мы пока не передаем это явно в структуру,
-	// но наличие переменных в ENV (через docker-compose) должно спасти ситуацию.
+	// Read Redis configuration
+	// Note: If redisClient reads REDIS_HOST via os.Getenv directly, it will work.
+	// If it takes the config from here, we aren't passing it explicitly into the struct yet,
+	// but the presence of variables in ENV (via docker-compose) will suffice.
 
 	security := SecurityConfig{
 		JWTSecretKey:            requireEnv("JWT_SECRET_KEY"),
