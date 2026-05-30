@@ -13,7 +13,7 @@ This repository contains the backend service for the Hadaf platform. It provides
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository_url>
+   git clone https://github.com/hadaf-tj/hadaf-backend
    cd hadaf-backend
    ```
 
