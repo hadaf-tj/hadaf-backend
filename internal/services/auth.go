@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package services
 
 import (
@@ -5,16 +8,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"shb/internal/models"
-	"shb/pkg/myerrors"
-	"shb/pkg/utils"
 	"strconv"
 	"strings"
 	"time"
 
+	"shb/internal/models"
+	"shb/pkg/myerrors"
+	"shb/pkg/utils"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
+// SendOTP generates a one-time password and delivers it to the receiver via
+// SMS (for phone numbers) or email. It returns the OTP TTL in seconds.
 func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 	otpCode, err := utils.GenerateOTP(s.cfg.Security.OTPLength)
 	if err != nil {
@@ -44,16 +50,14 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 	go func(rcv, code, mthd string, id int) {
 		var err error
 		if mthd == "email" {
-			subject := "Ваш код подтверждения Hadaf"
-			body := fmt.Sprintf(`
-				<html>
-				<body>
-					<h2>Здравствуйте!</h2>
-					<p>Ваш код подтверждения: <b>%s</b></p>
-					<p>Никому не сообщайте этот код.</p>
-				</body>
-				</html>
-			`, code)
+			subject := "Your Hadaf Verification Code"
+			body := fmt.Sprintf(`<html>
+<body>
+	<h2>Hello!</h2>
+	<p>Your verification code is: <b>%s</b></p>
+	<p>Do not share this code with anyone.</p>
+</body>
+</html>`, code)
 			err = s.email.SendEmail(context.Background(), rcv, subject, body)
 		} else {
 			txnID := strconv.Itoa(id)
@@ -73,15 +77,17 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 	return int(s.cfg.Security.OTPDuration.Seconds()), nil
 }
 
+// ConfirmOTP validates the provided OTP code for the given receiver. On
+// success it issues a new access/refresh token pair and returns them.
 func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models.TokenResponse, error) {
 	otpDB, err := s.repo.GetOTP(ctx, receiver)
 	if err != nil {
-		return nil, myerrors.NewUnauthorizedErr("Код не найден или истек")
+		return nil, myerrors.NewUnauthorizedErr("ERR_OTP_NOT_FOUND_OR_EXPIRED")
 	}
 
 	if otp != otpDB.OTPCode {
 		_ = s.repo.IncreaseOTPAttempt(ctx, otpDB.ID, receiver)
-		return nil, myerrors.NewUnauthorizedErr("Неверный код")
+		return nil, myerrors.NewUnauthorizedErr("ERR_OTP_INVALID")
 	}
 
 	if err = s.repo.MarkOTPAsVerified(ctx, otpDB.ID); err != nil {
@@ -95,7 +101,8 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 		user, err = s.repo.GetUserByPhone(ctx, receiver)
 	}
 
-	// NEW: registration flow - if user doesn't exist in DB, look in Cache
+	// Registration flow: if the user doesn't exist in DB, look in the cache
+	// for a pending registration entry created during Register().
 	if err != nil && errors.Is(err, myerrors.ErrNotFound) {
 		redisKey := fmt.Sprintf("pending_reg:%s", receiver)
 		userJSON, cacheErr := s.cache.Get(ctx, redisKey)
@@ -111,7 +118,7 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 			user = &pendingUser
 			_ = s.cache.Delete(ctx, redisKey)
 		} else {
-			return nil, myerrors.NewBadRequestErr("Пользователь не найден")
+			return nil, myerrors.NewBadRequestErr("ERR_USER_NOT_FOUND")
 		}
 	} else if err != nil {
 		return nil, err
@@ -123,9 +130,9 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 		}
 	}
 
-	// Employee approval check (per user, not per institution)
+	// Employee approval check (per user, not per institution).
 	if user.Role == models.RoleEmployee && !user.IsApproved {
-		return nil, myerrors.NewForbiddenErr("Ваш аккаунт ожидает подтверждения администратором")
+		return nil, myerrors.NewForbiddenErr("ERR_ACCOUNT_PENDING_APPROVAL")
 	}
 
 	access, refresh, err := s.token.IssueTokens(ctx, user.ID, user.Role, user.IsApproved)
@@ -145,26 +152,28 @@ func (s *Service) ConfirmOTP(ctx context.Context, receiver, otp string) (*models
 	}, nil
 }
 
+// Login authenticates a user by email and password, issuing a new token pair
+// on success.
 func (s *Service) Login(ctx context.Context, email, password string) (*models.TokenResponse, error) {
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, myerrors.ErrNotFound) {
-			return nil, myerrors.NewUnauthorizedErr("Неверный пароль либо логин")
+			return nil, myerrors.NewUnauthorizedErr("ERR_INVALID_CREDENTIALS")
 		}
 		return nil, fmt.Errorf("get user error: %w", err)
 	}
 
 	if !user.IsActive {
-		return nil, myerrors.NewUnauthorizedErr("Аккаунт не активирован. Пожалуйста, подтвердите OTP.")
+		return nil, myerrors.NewUnauthorizedErr("ERR_ACCOUNT_NOT_ACTIVATED")
 	}
 
-	// Employee approval check
+	// Employee approval check.
 	if user.Role == models.RoleEmployee && !user.IsApproved {
-		return nil, myerrors.NewForbiddenErr("Ваш аккаунт ожидает подтверждения администратором")
+		return nil, myerrors.NewForbiddenErr("ERR_ACCOUNT_PENDING_APPROVAL")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(password)); err != nil {
-		return nil, myerrors.NewUnauthorizedErr("Неверный пароль либо логин")
+		return nil, myerrors.NewUnauthorizedErr("ERR_INVALID_CREDENTIALS")
 	}
 
 	access, refresh, err := s.token.IssueTokens(ctx, user.ID, user.Role, user.IsApproved)
@@ -184,28 +193,30 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.To
 	}, nil
 }
 
+// RefreshTokens validates the provided refresh token, revokes it, and issues
+// a new access/refresh token pair (token rotation).
 func (s *Service) RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenResponse, error) {
 	claims, err := s.token.VerifyToken(ctx, refreshToken)
 	if err != nil {
-		return nil, myerrors.NewUnauthorizedErr("Недействительный токен")
+		return nil, myerrors.NewUnauthorizedErr("ERR_TOKEN_INVALID")
 	}
 
 	refreshHash := utils.HashToken(refreshToken)
 	stored, err := s.repo.GetRefreshToken(ctx, refreshHash)
 	if err != nil {
-		return nil, myerrors.NewUnauthorizedErr("Токен не найден")
+		return nil, myerrors.NewUnauthorizedErr("ERR_TOKEN_NOT_FOUND")
 	}
 
 	if stored.IsRevoked {
 		_ = s.repo.RevokeAllUserRefreshTokens(ctx, stored.UserID)
-		return nil, myerrors.NewForbiddenErr("Токен был отозван")
+		return nil, myerrors.NewForbiddenErr("ERR_TOKEN_REVOKED")
 	}
 
 	if time.Now().UTC().After(stored.ExpiresAt) {
-		return nil, myerrors.NewUnauthorizedErr("Срок действия токена истек")
+		return nil, myerrors.NewUnauthorizedErr("ERR_TOKEN_EXPIRED")
 	}
 
-	// Rotation
+	// Rotation: revoke the old token before issuing new ones.
 	if err := s.repo.RevokeRefreshToken(ctx, refreshHash); err != nil {
 		return nil, fmt.Errorf("revoke old token: %w", err)
 	}
@@ -227,24 +238,28 @@ func (s *Service) RefreshTokens(ctx context.Context, refreshToken string) (*mode
 	}, nil
 }
 
+// RevokeAllUserRefreshTokens invalidates every active refresh token belonging
+// to the given user (used on logout or security events).
 func (s *Service) RevokeAllUserRefreshTokens(ctx context.Context, userID int) error {
 	return s.repo.RevokeAllUserRefreshTokens(ctx, userID)
 }
 
+// Register stores a new user in Redis pending OTP verification. The user
+// record is only persisted to the database after ConfirmOTP succeeds.
 func (s *Service) Register(ctx context.Context, email, phone, password, fullName, role string, institutionID *int) (*models.TokenResponse, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	existing, err := s.repo.GetUserByEmail(ctx, email)
 	if err == nil && existing != nil {
-		return nil, myerrors.NewBadRequestErr("Пользователь с таким email уже существует")
+		return nil, myerrors.NewBadRequestErr("ERR_EMAIL_ALREADY_EXISTS")
 	}
 
 	if role == models.RoleEmployee {
 		if institutionID == nil {
-			return nil, myerrors.NewBadRequestErr("Для сотрудников обязательно указание учреждения")
+			return nil, myerrors.NewBadRequestErr("ERR_INSTITUTION_ID_REQUIRED")
 		}
 		inst, err := s.repo.GetInstitutionByID(ctx, *institutionID)
 		if err != nil || inst.IsDeleted {
-			return nil, myerrors.NewBadRequestErr("Указанное учреждение не найдено")
+			return nil, myerrors.NewBadRequestErr("ERR_INSTITUTION_NOT_FOUND")
 		}
 	}
 
@@ -261,11 +276,11 @@ func (s *Service) Register(ctx context.Context, email, phone, password, fullName
 		Password:      &hashedStr,
 		Role:          role,
 		InstitutionID: institutionID,
-		IsActive:      true,  // Set to active since it will be verified by OTP first anyway
-		IsApproved:    false, // Default to unapproved until superadmin approves
+		IsActive:      true,  // Active immediately; OTP serves as the verification step.
+		IsApproved:    false, // Requires super-admin approval.
 	}
 
-	// Instead of DB, store in cache until OTP confirmed
+	// Store in cache until OTP is confirmed; then CreateUser is called.
 	userJSON, err := json.Marshal(newUser)
 	if err != nil {
 		return nil, fmt.Errorf("marshal user: %w", err)
@@ -283,6 +298,7 @@ func (s *Service) Register(ctx context.Context, email, phone, password, fullName
 	return nil, nil
 }
 
+// GetUserByID retrieves a user by their primary key.
 func (s *Service) GetUserByID(ctx context.Context, id int) (*models.User, error) {
 	return s.repo.GetUserByID(ctx, id)
 }

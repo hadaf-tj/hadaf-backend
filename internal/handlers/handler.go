@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package handlers
 
 import (
 	"context"
 	"errors"
 	"net/http"
+
 	"shb/internal/configs"
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
@@ -19,10 +23,13 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
+// Limiter defines the rate-limiting contract used by the handler layer.
 type Limiter interface {
 	Allow(ctx context.Context, key string, limit int, windowSeconds int) (bool, error)
 	ResetAttempts(ctx context.Context, key string) error
 }
+
+// IService defines the business logic contract used by the handler layer.
 type IService interface {
 	SendOTP(ctx context.Context, receiver string) (int, error)
 	ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
@@ -60,33 +67,35 @@ type IService interface {
 	ApproveEvent(ctx context.Context, eventID int) error
 	RejectEvent(ctx context.Context, eventID int) error
 
-	// --- Stats Methods ---
+	// --- Stats ---
 	GetPublicStats(ctx context.Context) (map[string]int, error)
 
-	// --- Vacancies Methods ---
+	// --- Vacancies ---
 	GetAllVacancies(ctx context.Context) ([]*models.Vacancy, error)
 	GetVacancyByID(ctx context.Context, id int) (*models.Vacancy, error)
 
-	// --- Team Members Methods ---
+	// --- Team Members ---
 	GetAllTeamMembers(ctx context.Context) ([]*models.TeamMember, error)
 	GetTeamMemberByID(ctx context.Context, id int) (*models.TeamMember, error)
 
-	// --- SMS Methods ---
+	// --- SMS ---
 	CheckSMSBalance(ctx context.Context) (*smsProvider.BalanceResult, error)
 
-	// --- Auth/Token Methods ---
+	// --- Token Management ---
 	RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenResponse, error)
 	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
 }
 
+// Handler holds all dependencies for the HTTP handler layer.
 type Handler struct {
 	service    IService
-	limiter    Limiter                 // CHANGED: Use local interface
-	middleware *middlewares.Middleware // CHANGED: Use imported type (pointer likely)
+	limiter    Limiter
+	middleware *middlewares.Middleware
 	logger     *zerolog.Logger
 	cfg        *configs.Config
 }
 
+// NewHandler constructs a Handler with all required dependencies injected.
 func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middleware, logger *zerolog.Logger, cfg *configs.Config) *Handler {
 	return &Handler{
 		service:    service,
@@ -97,6 +106,7 @@ func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middl
 	}
 }
 
+// InitRoutes registers all application routes and returns the configured Gin engine.
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
 	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
@@ -120,7 +130,6 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		v1.POST("/logout", h.middleware.AuthMiddleware(), h.logout)
 		v1.POST("/refresh", h.refreshTokens)
 
-		// Исправленный вызов middleware
 		v1.GET("/check_access", h.middleware.AuthMiddleware(), func(c *gin.Context) {
 			h.success(c, "valid")
 		})
@@ -134,6 +143,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 
 		v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
 
+		// Need management (employees and super-admins only).
 		needs := v1.Group("/needs")
 		needs.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
 		{
@@ -142,9 +152,9 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			needs.DELETE("/:id", h.deleteNeed)
 		}
 
-		// Bookings (Protected) - отклики волонтеров
+		// Volunteer booking routes (any authenticated user).
 		bookings := v1.Group("/bookings")
-		bookings.Use(h.middleware.AuthMiddleware()) // Any authenticated user
+		bookings.Use(h.middleware.AuthMiddleware())
 		{
 			bookings.POST("", h.createBooking)
 			bookings.GET("/my", h.getMyBookings)
@@ -152,7 +162,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			bookings.PUT("/my/:id", h.updateMyBooking)
 		}
 
-		// Booking management (Protected) - управление откликами
+		// Booking management routes (employees and super-admins only).
 		bookingMgmt := v1.Group("/bookings")
 		bookingMgmt.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
 		{
@@ -161,14 +171,14 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			bookingMgmt.PUT("/:id/complete", h.completeBooking)
 		}
 
-		// Institution bookings (Protected) - просмотр откликов учреждения
+		// Institution booking view (employees and super-admins only).
 		institutionBookings := v1.Group("/institutions/:id/bookings")
 		institutionBookings.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
 		{
 			institutionBookings.GET("", h.getInstitutionBookings)
 		}
 
-		// Events routes - волонтёрские события
+		// Event routes.
 		v1.GET("/events", h.middleware.OptionalAccessToken(), h.getAllEvents)
 		v1.GET("/events/:id", h.middleware.OptionalAccessToken(), h.getEventByID)
 		v1.POST("/events", h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin), h.createEvent)
@@ -184,11 +194,10 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			eventMgmt.PUT("/:id/reject", h.rejectEvent)
 		}
 
-		// Vacancies
+		// Vacancies and team members (public).
 		v1.GET("/vacancies", h.getAllVacancies)
 		v1.GET("/vacancies/:id", h.getVacancyByID)
 
-		// Team Members
 		v1.GET("/team", h.getAllTeamMembers)
 		v1.GET("/team/:id", h.getTeamMemberByID)
 	}
@@ -214,6 +223,8 @@ func (h *Handler) success(c *gin.Context, data any) {
 	}, http.StatusOK)
 }
 
+// handleError maps domain errors to the appropriate HTTP status codes and
+// response bodies.
 func (h *Handler) handleError(c *gin.Context, err error) {
 	log := zerolog.Ctx(c.Request.Context())
 
@@ -253,6 +264,8 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 	c.Abort()
 }
 
+// RequestID is a middleware that ensures every request carries a unique
+// request ID header and propagates it through the request context.
 func (h *Handler) RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID := c.Request.Header.Get(constants.RequestIDHeader)
@@ -268,6 +281,8 @@ func (h *Handler) RequestID() gin.HandlerFunc {
 	}
 }
 
+// CORSMiddleware sets permissive CORS headers for recognised origins and
+// handles pre-flight OPTIONS requests.
 func (h *Handler) CORSMiddleware() gin.HandlerFunc {
 	allowedOrigins := map[string]bool{
 		"https://hadaf.tj":      true,

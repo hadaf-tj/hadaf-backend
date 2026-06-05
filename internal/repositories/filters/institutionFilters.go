@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package filters
 
 import (
@@ -29,10 +32,10 @@ func BuildGetAllInstitutionFilter(filter InstitutionFilter) (string, []interface
 	filterQuery := ""
 	var args []interface{}
 
-	// Индекс параметра чтобы не было путаницы с последовательностью аргументов
+	// Parameter index to avoid confusion with argument sequence.
 	idx := 1
 
-	// is_deleted — всегда первый
+	// is_deleted is always the first parameter.
 	filterQuery += fmt.Sprintf(" WHERE is_deleted = $%d", idx)
 	args = append(args, filter.IsDeleted)
 	idx++
@@ -85,7 +88,7 @@ func BuildGetAllInstitutionFilter(filter InstitutionFilter) (string, []interface
 		idx++
 	}
 
-	// ORDER BY — ТОЛЬКО whitelist
+	// ORDER BY is strictly whitelisted.
 	switch filter.OrderBy {
 	case "asc":
 		filterQuery += " ORDER BY id ASC"

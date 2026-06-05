@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package services_test
 
 import (
@@ -186,7 +189,7 @@ func TestService_CreateBooking(t *testing.T) {
 				d.Repo.On("GetActiveBookingByUserAndNeed", ctx, 1, 10).Return(nil, nil)
 				d.Repo.On("CreateBooking", ctx, bookingMatcher(1, 10)).Return(7, nil)
 				d.Repo.On("GetInstitutionByID", ctx, 5).Return(inst, nil)
-				d.Email.On("SendEmail", ctx, email, mock.MatchedBy(func(s string) bool { return strings.Contains(s, "Новый") }),
+				d.Email.On("SendEmail", ctx, email, mock.MatchedBy(func(s string) bool { return strings.Contains(s, "New volunteer") }),
 					mock.MatchedBy(func(s string) bool { return strings.Contains(s, "Food") })).Return(nil)
 			},
 			userID:  1,
@@ -204,7 +207,7 @@ func TestService_CreateBooking(t *testing.T) {
 				d.Repo.On("GetActiveBookingByUserAndNeed", ctx, 1, 10).Return(nil, nil)
 				d.Repo.On("CreateBooking", ctx, bookingMatcher(1, 10)).Return(8, nil)
 				d.Repo.On("GetInstitutionByID", ctx, 5).Return(inst, nil)
-				d.Email.On("SendEmail", ctx, email, mock.MatchedBy(func(s string) bool { return strings.Contains(s, "Новый") }),
+				d.Email.On("SendEmail", ctx, email, mock.MatchedBy(func(s string) bool { return strings.Contains(s, "New volunteer") }),
 					mock.MatchedBy(func(s string) bool { return strings.Contains(s, "Food") })).Return(errors.New("smtp down"))
 			},
 			userID:  1,

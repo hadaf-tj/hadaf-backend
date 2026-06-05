@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package middlewares
 
 import (
@@ -12,23 +15,26 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// Middleware holds shared middleware state, such as the JWT signing secret.
 type Middleware struct {
 	jwtSecret string
 }
 
-// NewMiddleware теперь принимает секрет как аргумент
+// NewMiddleware creates a new Middleware instance with the given JWT secret.
 func NewMiddleware(jwtSecret string) *Middleware {
 	return &Middleware{
 		jwtSecret: jwtSecret,
 	}
 }
 
-// AuthMiddleware (код остается прежним, но использует m.jwtSecret)
+// AuthMiddleware returns a Gin handler that enforces JWT authentication and,
+// optionally, role-based access control. If roles are provided, the caller
+// must have at least one of them; otherwise any valid token is accepted.
 func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
 
-		// Try Authorization header first, then fall back to httpOnly cookie
+		// Try Authorization header first, then fall back to httpOnly cookie.
 		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" {
 			headerParts := strings.Split(authHeader, " ")
@@ -49,7 +55,6 @@ func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			// Используем локальное поле
 			return []byte(m.jwtSecret), nil
 		})
 
@@ -58,7 +63,7 @@ func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 			return
 		}
 
-		// RBAC
+		// Role-based access control.
 		if len(roles) > 0 {
 			roleAllowed := false
 			for _, role := range roles {
@@ -73,9 +78,9 @@ func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 			}
 		}
 
-		// Verification of moderation for employees
+		// Employees must be approved by a super-admin before they can access protected routes.
 		if claims.Role == models.RoleEmployee && !claims.IsApproved {
-			c.AbortWithStatusJSON(http.StatusForbidden, myerrors.NewForbiddenErr("Ваш аккаунт ожидает подтверждения администратором"))
+			c.AbortWithStatusJSON(http.StatusForbidden, myerrors.NewForbiddenErr("ERR_ACCOUNT_PENDING_APPROVAL"))
 			return
 		}
 
@@ -86,12 +91,14 @@ func (m *Middleware) AuthMiddleware(roles ...string) gin.HandlerFunc {
 	}
 }
 
-// OptionalAccessToken - мягкая авторизация (не требует токена, но извлекает userID если есть)
+// OptionalAccessToken is a soft-authentication middleware. It attempts to
+// extract and validate the access token but proceeds without error if one is
+// absent or invalid, setting userID to 0.
 func (m *Middleware) OptionalAccessToken() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
 
-		// Try Authorization header first, then fall back to httpOnly cookie
+		// Try Authorization header first, then fall back to httpOnly cookie.
 		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" {
 			headerParts := strings.Split(authHeader, " ")
@@ -124,9 +131,8 @@ func (m *Middleware) OptionalAccessToken() gin.HandlerFunc {
 			return
 		}
 
-		// Verification of moderation for employees (even in optional)
+		// Unapproved employees are treated as unauthenticated in optional mode.
 		if claims.Role == models.RoleEmployee && !claims.IsApproved {
-			// for optional access token we just act as if they are not logged in
 			c.Set("userID", 0)
 			c.Next()
 			return

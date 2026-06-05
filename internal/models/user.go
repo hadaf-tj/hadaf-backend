@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package models
 
 import "time"
 
-// Роли пользователей
+// User roles
 const (
 	RoleSuperAdmin = "super_admin"
 	RoleEmployee   = "employee"

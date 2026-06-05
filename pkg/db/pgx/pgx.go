@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package pgx
 
 import (
@@ -56,7 +59,7 @@ func NewPgxPool() (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("failed to connect to db: %w", err)
 	}
 
-	// проверка соединения
+	// Verify the connection is reachable.
 	if err = pool.Ping(context.Background()); err != nil {
 		return nil, fmt.Errorf("database ping failed: %w", err)
 	}

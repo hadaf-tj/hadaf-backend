@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package redisClient
 
 import (
@@ -21,11 +24,11 @@ func NewRedisClient() (*RedisCache, error) {
 		return nil, err
 	}
 
-	// 1. Пытаемся получить настройки из переменных окружения (для Docker)
+	// 1. Try to read connection settings from environment variables (Docker).
 	host := os.Getenv("REDIS_HOST")
 	port := os.Getenv("REDIS_PORT")
 
-	// 2. Если переменных нет, используем дефолтные значения или те, что в конфиге (для локального запуска)
+	// 2. Fall back to config values if environment variables are not set (local run).
 	if cfg.Redis.Host == "" {
 		host = "localhost"
 	}
@@ -35,17 +38,17 @@ func NewRedisClient() (*RedisCache, error) {
 
 	addr := fmt.Sprintf("%s:%s", host, port)
 
-	// Парсим остальные настройки
+	// Parse remaining settings from config.
 	db := cfg.Redis.DefaultDB
 
-	// Безопасное чтение таймаура
+	// Safely read the timeout value.
 	timeoutInt, err := strconv.Atoi(cfg.Redis.Timeout)
 
 	if timeoutInt == 0 {
-		timeoutInt = 5 // Дефолтный таймаут 5 секунд, если в конфиге пусто
+		timeoutInt = 5 // Default to 5 seconds if the config value is empty.
 	}
 
-	fmt.Printf("Connecting to Redis at: %s\n", addr) // Лог для отладки
+	fmt.Printf("Connecting to Redis at: %s\n", addr)
 
 	client := redis.NewClient(&redis.Options{
 		Addr: addr,

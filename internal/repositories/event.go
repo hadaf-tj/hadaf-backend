@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package repositories
 
 import (
@@ -10,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// CreateEvent создаёт новое событие
+// CreateEvent creates a new event.
 func (r *Repository) CreateEvent(ctx context.Context, e *models.Event) (int, error) {
 	query := `
 		INSERT INTO events (title, description, event_date, institution_id, creator_id, status)
@@ -28,7 +31,7 @@ func (r *Repository) CreateEvent(ctx context.Context, e *models.Event) (int, err
 	return id, nil
 }
 
-// GetEventByID получает событие по ID
+// GetEventByID gets an event by ID.
 func (r *Repository) GetEventByID(ctx context.Context, id int) (*models.Event, error) {
 	query := `
 		SELECT id, title, description, event_date, institution_id, creator_id, created_at
@@ -45,7 +48,7 @@ func (r *Repository) GetEventByID(ctx context.Context, id int) (*models.Event, e
 	return &e, nil
 }
 
-// GetEventDetail возвращает одно событие в формате EventResponse (как элемент списка).
+// GetEventDetail returns an event formatted as EventResponse.
 func (r *Repository) GetEventDetail(ctx context.Context, q models.EventDetailQuery) (*models.EventResponse, error) {
 	const query = `
 		SELECT 
@@ -56,7 +59,7 @@ func (r *Repository) GetEventDetail(ctx context.Context, q models.EventDetailQue
 			e.institution_id,
 			i.name as institution_name,
 			e.creator_id,
-			COALESCE(u.full_name, u.phone, 'Организатор') as creator_name,
+			COALESCE(u.full_name, u.phone, 'Organizer') as creator_name,
 			(SELECT COUNT(*) FROM event_participants ep WHERE ep.event_id = e.id) as participants_count,
 			EXISTS(SELECT 1 FROM event_participants ep WHERE ep.event_id = e.id AND ep.user_id = $1) as is_joined,
 			e.created_at
@@ -96,7 +99,7 @@ func (r *Repository) countEvents(ctx context.Context) (int64, error) {
 	return total, nil
 }
 
-// GetAllEvents возвращает страницу событий с дополнительными данными.
+// GetAllEvents returns a page of events with additional metadata.
 func (r *Repository) GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error) {
 	query := `
 		SELECT
@@ -107,7 +110,7 @@ func (r *Repository) GetAllEvents(ctx context.Context, q models.EventListQuery) 
 			e.institution_id,
 			i.name as institution_name,
 			e.creator_id,
-			COALESCE(u.full_name, u.phone, 'Организатор') as creator_name,
+			COALESCE(u.full_name, u.phone, 'Organizer') as creator_name,
 			(SELECT COUNT(*) FROM event_participants ep WHERE ep.event_id = e.id) as participants_count,
 			EXISTS(SELECT 1 FROM event_participants ep WHERE ep.event_id = e.id AND ep.user_id = $1) as is_joined,
 			e.status,
@@ -162,7 +165,7 @@ func (r *Repository) GetAllEvents(ctx context.Context, q models.EventListQuery) 
 	}, nil
 }
 
-// JoinEvent записывает пользователя на событие
+// JoinEvent registers a user for an event.
 func (r *Repository) JoinEvent(ctx context.Context, eventID, userID int) error {
 	query := `
 		INSERT INTO event_participants (event_id, user_id)
@@ -176,7 +179,7 @@ func (r *Repository) JoinEvent(ctx context.Context, eventID, userID int) error {
 	return nil
 }
 
-// LeaveEvent отменяет запись пользователя на событие
+// LeaveEvent unregisters a user from an event.
 func (r *Repository) LeaveEvent(ctx context.Context, eventID, userID int) error {
 	query := `DELETE FROM event_participants WHERE event_id = $1 AND user_id = $2`
 	result, err := r.postgres.Exec(ctx, query, eventID, userID)
@@ -189,7 +192,7 @@ func (r *Repository) LeaveEvent(ctx context.Context, eventID, userID int) error 
 	return nil
 }
 
-// GetInstitutionEvents получает все события, предложенные конкретному учреждению (для модерации)
+// GetInstitutionEvents returns all events proposed by a specific institution for moderation.
 func (r *Repository) GetInstitutionEvents(ctx context.Context, institutionID int) ([]*models.EventResponse, error) {
 	query := `
 		SELECT 
@@ -200,7 +203,7 @@ func (r *Repository) GetInstitutionEvents(ctx context.Context, institutionID int
 			e.institution_id,
 			i.name as institution_name,
 			e.creator_id,
-			COALESCE(u.full_name, u.phone, 'Организатор') as creator_name,
+			COALESCE(u.full_name, u.phone, 'Organizer') as creator_name,
 			(SELECT COUNT(*) FROM event_participants ep WHERE ep.event_id = e.id) as participants_count,
 			false as is_joined,
 			e.status,
@@ -233,7 +236,7 @@ func (r *Repository) GetInstitutionEvents(ctx context.Context, institutionID int
 	return events, nil
 }
 
-// UpdateEventStatus обновляет статус события
+// UpdateEventStatus updates the event status.
 func (r *Repository) UpdateEventStatus(ctx context.Context, eventID int, status string) error {
 	query := `UPDATE events SET status = $1, updated_at = NOW() WHERE id = $2 AND is_deleted = false`
 	result, err := r.postgres.Exec(ctx, query, status, eventID)

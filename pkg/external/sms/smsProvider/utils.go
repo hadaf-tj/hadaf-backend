@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package smsProvider
 
 import (
@@ -5,7 +8,7 @@ import (
 	"strings"
 )
 
-// FormatPhoneNumber converts phone number to 992ХХХХХХХХХ format
+// FormatPhoneNumber normalises a phone number to the 992XXXXXXXXX format.
 func FormatPhoneNumber(phone string) (string, error) {
 	// Remove all non-digit characters
 	digits := strings.Map(func(r rune) rune {
@@ -25,6 +28,6 @@ func FormatPhoneNumber(phone string) (string, error) {
 		return "", fmt.Errorf("invalid phone number format: expected 9 digits after country code, got %d", len(digits))
 	}
 
-	// Return in format 992ХХХХХХХХХ
+	// Return in format 992XXXXXXXXX.
 	return "992" + digits, nil
 }

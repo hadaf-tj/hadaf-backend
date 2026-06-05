@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package jwtToken
 
 import (
@@ -11,12 +14,12 @@ import (
 )
 
 type JwtTokenIssuer struct {
-	secretKey  string // Используем один ключ для простоты и совместимости с middleware
+	secretKey  string // Single shared key used by both token issuer and middleware.
 	accessTTL  time.Duration
 	refreshTTL time.Duration
 }
 
-// Теперь принимаем конфиг аргументами
+// NewJwtTokenIssuer creates a JwtTokenIssuer with the given secret and TTL values.
 func NewJwtTokenIssuer(secretKey string, accessTTL, refreshTTL time.Duration) *JwtTokenIssuer {
 	return &JwtTokenIssuer{
 		secretKey:  secretKey,
@@ -31,7 +34,7 @@ func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, id int, role string, i
 	accessClaims := models.CustomClaims{
 		UserID:     id,
 		Role:       role,
-		IsApproved: isApproved, // <--- Добавили проверку модерации
+		IsApproved: isApproved,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   constants.AccessSubject,
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.accessTTL)),
@@ -54,7 +57,7 @@ func (j *JwtTokenIssuer) IssueTokens(ctx context.Context, id int, role string, i
 		},
 	}
 
-	// Подписываем одним и тем же ключом, который ждет Middleware
+	// Sign with the same key expected by the middleware.
 	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).
 		SignedString([]byte(j.secretKey))
 	if err != nil {
