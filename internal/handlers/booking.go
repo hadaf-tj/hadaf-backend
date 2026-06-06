@@ -22,22 +22,16 @@ func (h *Handler) createBooking(c *gin.Context) {
 		return
 	}
 
-	userID, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
-		return
-	}
-	userIDInt, ok := userID.(int)
-	if !ok {
-		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
-	log := zerolog.Ctx(ctx).With().Str("handler", "createBooking").Int("user_id", userIDInt).Logger()
+	log := zerolog.Ctx(ctx).With().Str("handler", "createBooking").Int("user_id", userID).Logger()
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
-	limitKey := fmt.Sprintf("booking_create:%d", userIDInt)
+	limitKey := fmt.Sprintf("booking_create:%d", userID)
 	allowed, err := h.limiter.Allow(ctx, limitKey, 5, 3600)
 	if err != nil {
 		log.Error().Err(err).Msg("rate limiter error")
@@ -56,7 +50,7 @@ func (h *Handler) createBooking(c *gin.Context) {
 		return
 	}
 
-	bookingID, err := h.service.CreateBooking(ctx, userIDInt, input.NeedID, input.Quantity, input.Note)
+	bookingID, err := h.service.CreateBooking(ctx, userID, input.NeedID, input.Quantity, input.Note)
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -69,14 +63,8 @@ func (h *Handler) createBooking(c *gin.Context) {
 func (h *Handler) approveBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
-		return
-	}
-	userIDInt, ok := userID.(int)
-	if !ok {
-		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
@@ -87,11 +75,11 @@ func (h *Handler) approveBooking(c *gin.Context) {
 		return
 	}
 
-	log := zerolog.Ctx(ctx).With().Str("handler", "approveBooking").Int("user_id", userIDInt).Int("booking_id", bookingID).Logger()
+	log := zerolog.Ctx(ctx).With().Str("handler", "approveBooking").Int("user_id", userID).Int("booking_id", bookingID).Logger()
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
-	if err := h.service.ApproveBooking(ctx, bookingID, userIDInt); err != nil {
+	if err := h.service.ApproveBooking(ctx, bookingID, userID); err != nil {
 		h.handleError(c, err)
 		return
 	}
@@ -103,14 +91,8 @@ func (h *Handler) approveBooking(c *gin.Context) {
 func (h *Handler) rejectBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
-		return
-	}
-	userIDInt, ok := userID.(int)
-	if !ok {
-		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
@@ -121,11 +103,11 @@ func (h *Handler) rejectBooking(c *gin.Context) {
 		return
 	}
 
-	log := zerolog.Ctx(ctx).With().Str("handler", "rejectBooking").Int("user_id", userIDInt).Int("booking_id", bookingID).Logger()
+	log := zerolog.Ctx(ctx).With().Str("handler", "rejectBooking").Int("user_id", userID).Int("booking_id", bookingID).Logger()
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
-	if err := h.service.RejectBooking(ctx, bookingID, userIDInt); err != nil {
+	if err := h.service.RejectBooking(ctx, bookingID, userID); err != nil {
 		h.handleError(c, err)
 		return
 	}
@@ -137,14 +119,8 @@ func (h *Handler) rejectBooking(c *gin.Context) {
 func (h *Handler) completeBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
-		return
-	}
-	userIDInt, ok := userID.(int)
-	if !ok {
-		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
@@ -155,11 +131,11 @@ func (h *Handler) completeBooking(c *gin.Context) {
 		return
 	}
 
-	log := zerolog.Ctx(ctx).With().Str("handler", "completeBooking").Int("user_id", userIDInt).Int("booking_id", bookingID).Logger()
+	log := zerolog.Ctx(ctx).With().Str("handler", "completeBooking").Int("user_id", userID).Int("booking_id", bookingID).Logger()
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
-	if err := h.service.CompleteBooking(ctx, bookingID, userIDInt); err != nil {
+	if err := h.service.CompleteBooking(ctx, bookingID, userID); err != nil {
 		h.handleError(c, err)
 		return
 	}
@@ -184,8 +160,11 @@ func (h *Handler) getInstitutionBookings(c *gin.Context) {
 
 	role, _ := c.Get("role")
 	if role.(string) != models.RoleSuperAdmin {
-		userID, _ := c.Get("userID")
-		user, err := h.service.GetUserByID(ctx, userID.(int))
+		userID, shouldReturn := h.mustGetUserID(c)
+		if shouldReturn {
+			return
+		}
+		user, err := h.service.GetUserByID(ctx, userID)
 		if err != nil {
 			h.handleError(c, err)
 			return
@@ -209,22 +188,16 @@ func (h *Handler) getInstitutionBookings(c *gin.Context) {
 func (h *Handler) getMyBookings(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
-		return
-	}
-	userIDInt, ok := userID.(int)
-	if !ok {
-		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
-	log := zerolog.Ctx(ctx).With().Str("handler", "getMyBookings").Int("user_id", userIDInt).Logger()
+	log := zerolog.Ctx(ctx).With().Str("handler", "getMyBookings").Int("user_id", userID).Logger()
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
-	bookings, err := h.service.GetBookingsByUser(ctx, userIDInt)
+	bookings, err := h.service.GetBookingsByUser(ctx, userID)
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -237,9 +210,8 @@ func (h *Handler) getMyBookings(c *gin.Context) {
 func (h *Handler) cancelMyBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
@@ -250,11 +222,11 @@ func (h *Handler) cancelMyBooking(c *gin.Context) {
 		return
 	}
 
-	log := zerolog.Ctx(ctx).With().Str("handler", "cancelMyBooking").Int("user_id", userID.(int)).Int("booking_id", bookingID).Logger()
+	log := zerolog.Ctx(ctx).With().Str("handler", "cancelMyBooking").Int("user_id", userID).Int("booking_id", bookingID).Logger()
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
-	if err := h.service.CancelMyBooking(ctx, bookingID, userID.(int)); err != nil {
+	if err := h.service.CancelMyBooking(ctx, bookingID, userID); err != nil {
 		h.handleError(c, err)
 		return
 	}
@@ -266,9 +238,8 @@ func (h *Handler) cancelMyBooking(c *gin.Context) {
 func (h *Handler) updateMyBooking(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
@@ -279,7 +250,7 @@ func (h *Handler) updateMyBooking(c *gin.Context) {
 		return
 	}
 
-	log := zerolog.Ctx(ctx).With().Str("handler", "updateMyBooking").Int("user_id", userID.(int)).Int("booking_id", bookingID).Logger()
+	log := zerolog.Ctx(ctx).With().Str("handler", "updateMyBooking").Int("user_id", userID).Int("booking_id", bookingID).Logger()
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
@@ -291,7 +262,7 @@ func (h *Handler) updateMyBooking(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.UpdateMyBooking(ctx, bookingID, userID.(int), input.Quantity); err != nil {
+	if err := h.service.UpdateMyBooking(ctx, bookingID, userID, input.Quantity); err != nil {
 		h.handleError(c, err)
 		return
 	}
