@@ -307,3 +307,19 @@ func (h *Handler) CORSMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func (h *Handler) mustGetUserID(c *gin.Context) (int, bool) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
+		return 0, true
+	}
+
+	userIDInt, ok := userID.(int)
+	if !ok {
+		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
+		return 0, true
+	}
+
+	return userIDInt, false
+}

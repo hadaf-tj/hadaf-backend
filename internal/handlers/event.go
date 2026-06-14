@@ -25,11 +25,9 @@ type CreateEventInput struct {
 func (h *Handler) getAllEvents(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID := 0
-	if id, exists := c.Get("userID"); exists {
-		if uid, ok := id.(int); ok {
-			userID = uid
-		}
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
+		return
 	}
 
 	log := zerolog.Ctx(ctx).With().Str("handler", "getAllEvents").Int("user_id", userID).Logger()
@@ -66,11 +64,9 @@ func (h *Handler) getEventByID(c *gin.Context) {
 		return
 	}
 
-	userID := 0
-	if id, exists := c.Get("userID"); exists {
-		if uid, ok := id.(int); ok {
-			userID = uid
-		}
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
+		return
 	}
 
 	log := zerolog.Ctx(ctx).With().Str("handler", "getEventByID").Int("event_id", eventID).Int("user_id", userID).Logger()
@@ -94,14 +90,8 @@ func (h *Handler) getEventByID(c *gin.Context) {
 func (h *Handler) createEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	creatorIDRaw, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
-		return
-	}
-	creatorID, ok := creatorIDRaw.(int)
-	if !ok || creatorID == 0 {
-		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
+	creatorID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
@@ -148,14 +138,8 @@ func (h *Handler) createEvent(c *gin.Context) {
 func (h *Handler) joinEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userIDRaw, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
-		return
-	}
-	userID, ok := userIDRaw.(int)
-	if !ok || userID == 0 {
-		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
@@ -183,14 +167,8 @@ func (h *Handler) joinEvent(c *gin.Context) {
 func (h *Handler) leaveEvent(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userIDRaw, exists := c.Get("userID")
-	if !exists {
-		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
-		return
-	}
-	userID, ok := userIDRaw.(int)
-	if !ok || userID == 0 {
-		h.handleError(c, myerrors.NewUnauthorizedErr("unauthorized"))
+	userID, shouldReturn := h.mustGetUserID(c)
+	if shouldReturn {
 		return
 	}
 
