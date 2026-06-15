@@ -50,14 +50,8 @@ func (s *Service) SendOTP(ctx context.Context, receiver string) (int, error) {
 	go func(rcv, code, mthd string, id int) {
 		var err error
 		if mthd == "email" {
-			subject := "Your Hadaf Verification Code"
-			body := fmt.Sprintf(`<html>
-<body>
-	<h2>Hello!</h2>
-	<p>Your verification code is: <b>%s</b></p>
-	<p>Do not share this code with anyone.</p>
-</body>
-</html>`, code)
+			subject := "Верификационный код Hadaf"
+			body := fmt.Sprintf("Никому не передавайте. %s", code)
 			err = s.email.SendEmail(context.Background(), rcv, subject, body)
 		} else {
 			txnID := strconv.Itoa(id)
