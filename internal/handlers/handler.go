@@ -142,6 +142,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		v1.POST("/institutions", h.middleware.AuthMiddleware(models.RoleSuperAdmin), h.createInstitution)
 
 		v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
+		v1.GET("/institutions/:id/needs/:needID", h.getNeedByID)
 
 		// Need management (employees and super-admins only).
 		needs := v1.Group("/needs")

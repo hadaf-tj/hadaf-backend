@@ -162,3 +162,36 @@ func (h *Handler) getNeedsByInstitution(c *gin.Context) {
 	log.Debug().Int("count", len(needs)).Msg("needs fetched")
 	h.success(c, needs)
 }
+
+func (h *Handler) getNeedByID(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	institutionID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid institution id"))
+		return
+	}
+
+	needID, err := strconv.Atoi(c.Param("needId"))
+	if err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid need id"))
+		return
+	}
+
+	log := zerolog.Ctx(ctx).With().
+		Str("handler", "getNeedByID").
+		Int("institution_id", institutionID).
+		Int("need_id", needID).
+		Logger()
+
+	ctx = log.WithContext(ctx)
+
+	need, err := h.service.GetNeedByID(ctx, needID)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	log.Debug().Msg("need fetched")
+	h.success(c, need)
+}
