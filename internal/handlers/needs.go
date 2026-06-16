@@ -192,6 +192,11 @@ func (h *Handler) getNeedByID(c *gin.Context) {
 		return
 	}
 
+	if need.InstitutionID != institutionID {
+		h.handleError(c, myerrors.NewBadRequestErr("need not found"))
+		return
+	}
+
 	log.Debug().Msg("need fetched")
 	h.success(c, need)
 }
