@@ -15,6 +15,7 @@ type Config struct {
 	Database DatabaseConfig
 	Logger   LoggerConfig
 	SMS      SMSConfig
+	Telegram TelegramConfig
 	SMTP     SMTPConfig
 	Server   ServerConfig
 	Service  ServiceConfig
@@ -91,6 +92,12 @@ type MinioConfig struct {
 	Endpoint  string
 	AccessKey string
 	SecretKey string
+}
+
+type TelegramConfig struct {
+	BaseURL string
+	Token   string
+	ChatID  string
 }
 
 // Helper to read ENV with a default value.
@@ -191,6 +198,11 @@ func InitConfigs() (*Config, error) {
 			Endpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
 			AccessKey: getEnv("MINIO_ACCESS_KEY", "minio"),
 			SecretKey: getEnv("MINIO_SECRET_KEY", "minio"),
+		},
+		Telegram: TelegramConfig{
+			Token:   getEnv("TELEGRAM_ALERT_TOKEN", ""),
+			ChatID:  getEnv("TELEGRAM_ALERT_CHAT_ID", ""),
+			BaseURL: getEnv("TELEGRAM_BASE_URL", "https://api.telegram.org"),
 		},
 	}, nil
 }

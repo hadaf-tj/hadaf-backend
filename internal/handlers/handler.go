@@ -109,7 +109,7 @@ func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middl
 // InitRoutes registers all application routes and returns the configured Gin engine.
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
-	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
+	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.AlertMiddleware())
 	router.NoRoute(h.noRoute)
 
 	router.GET("/ping", h.ping)
@@ -122,6 +122,18 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			))
 			v1.Static("/docs", "./docs")
 		}
+
+		v1.GET("/telegram/panic", func(c *gin.Context) {
+			panic("telegram test")
+		})
+		v1.GET("/telegram/5xx", func(c *gin.Context) {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"error": "test 500",
+				},
+			)
+		})
 
 		v1.POST("/send_otp", h.sendOTP)
 		v1.POST("/confirm_otp", h.confirmOTP)

@@ -5,11 +5,14 @@ package middlewares
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"shb/internal/models"
 	"shb/pkg/myerrors"
+	"shb/pkg/notifier"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -17,13 +20,25 @@ import (
 
 // Middleware holds shared middleware state, such as the JWT signing secret.
 type Middleware struct {
-	jwtSecret string
+	jwtSecret        string
+	telegramNotifier *notifier.TelegramNotifier
 }
 
 // NewMiddleware creates a new Middleware instance with the given JWT secret.
-func NewMiddleware(jwtSecret string) *Middleware {
+func NewMiddleware(
+	jwtSecret string,
+	telegramNotifier ...*notifier.TelegramNotifier,
+) *Middleware {
+
+	var tn *notifier.TelegramNotifier
+
+	if len(telegramNotifier) > 0 {
+		tn = telegramNotifier[0]
+	}
+
 	return &Middleware{
-		jwtSecret: jwtSecret,
+		jwtSecret:        jwtSecret,
+		telegramNotifier: tn,
 	}
 }
 
@@ -142,5 +157,71 @@ func (m *Middleware) OptionalAccessToken() gin.HandlerFunc {
 		c.Set("role", claims.Role)
 		c.Set("isApproved", claims.IsApproved)
 		c.Next()
+	}
+}
+
+func (m *Middleware) AlertMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		defer func() {
+
+			if err := recover(); err != nil {
+
+				message := fmt.Sprintf(
+					`🚨 <b>PANIC</b>
+
+Time: %s
+Route: %s %s
+Error: %v`,
+					time.Now().UTC().Format(time.RFC3339),
+					c.Request.Method,
+					c.Request.URL.Path,
+					err,
+				)
+
+				go func() {
+					if m.telegramNotifier == nil {
+						return
+					}
+
+					if sendErr := m.telegramNotifier.SendAlert(message); sendErr != nil {
+						log.Printf("telegram alert failed: %v", sendErr)
+					}
+				}()
+
+				c.AbortWithStatusJSON(
+					http.StatusInternalServerError,
+					gin.H{
+						"message": "internal server error",
+					},
+				)
+			}
+
+		}()
+
+		c.Next()
+
+		if c.Writer.Status() >= 500 {
+
+			message := fmt.Sprintf(
+				`🚨 <b>SERVER ERROR</b>
+
+Time: %s
+Route: %s %s
+Status: %d`,
+				time.Now().UTC().Format(time.RFC3339),
+				c.Request.Method,
+				c.Request.URL.Path,
+				c.Writer.Status(),
+			)
+
+			go func() {
+				if m.telegramNotifier != nil {
+					if err := m.telegramNotifier.SendAlert(message); err != nil {
+						log.Printf("telegram alert failed: %v", err)
+					}
+				}
+			}()
+		}
 	}
 }
