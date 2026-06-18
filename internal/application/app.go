@@ -20,9 +20,9 @@ import (
 	"shb/pkg/external/sms/smsProvider"
 	"shb/pkg/logger"
 	"shb/pkg/middlewares"
+	"shb/pkg/notifier"
 	"shb/pkg/rateLimiter/customLimiter"
 	"shb/pkg/tokens/jwtToken"
-	"shb/pkg/notifier"
 	"syscall"
 	"time"
 

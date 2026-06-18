@@ -168,11 +168,11 @@ func (m *Middleware) AlertMiddleware() gin.HandlerFunc {
 			if err := recover(); err != nil {
 
 				message := fmt.Sprintf(
-					`🚨 <b>PANIC</b>
+					` <b>[ PANIC ]</b>
 
-Time: %s
-Route: %s %s
-Error: %v`,
+<b>Time:</b> %s
+<b>Route:</b> %s %s
+<b>Error:</b> %v`,
 					time.Now().UTC().Format(time.RFC3339),
 					c.Request.Method,
 					c.Request.URL.Path,
@@ -204,11 +204,11 @@ Error: %v`,
 		if c.Writer.Status() >= 500 {
 
 			message := fmt.Sprintf(
-				`🚨 <b>SERVER ERROR</b>
+				` <b>[ SERVER ERROR ]</b>
 
-Time: %s
-Route: %s %s
-Status: %d`,
+<b>Time:</b> %s
+<b>Route:</b> %s %s
+<b>Status:</b> %d`,
 				time.Now().UTC().Format(time.RFC3339),
 				c.Request.Method,
 				c.Request.URL.Path,
