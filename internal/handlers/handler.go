@@ -21,6 +21,7 @@ import (
 	"github.com/rs/zerolog"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"golang.org/x/oauth2"
 )
 
 // Limiter defines the rate-limiting contract used by the handler layer.
@@ -36,6 +37,10 @@ type IService interface {
 	Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
 	Register(ctx context.Context, email, phone, password, fullName, role string, institutionID *int) (*models.TokenResponse, error)
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	CreateUser(ctx context.Context, user *models.User) error
+	LoginOAuth(ctx context.Context, oauthUserInfo models.OAuthUserInfo) (*models.TokenResponse, error)
+	UpdateUserOAuthInfoByEmail(ctx context.Context, info models.OAuthUserInfo) (*models.User, error)
 
 	GetAllInstitutions(ctx context.Context, q models.InstitutionListQuery) (*models.InstitutionPage, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
@@ -86,23 +91,39 @@ type IService interface {
 	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
 }
 
+type OAuthProvider interface {
+	ProviderName() string
+	CallbackPath() string
+	OAuth2Config() *oauth2.Config
+	GetUser(ctx context.Context, tok *oauth2.Token) (models.OAuthUserInfo, error)
+}
+
 // Handler holds all dependencies for the HTTP handler layer.
 type Handler struct {
-	service    IService
-	limiter    Limiter
-	middleware *middlewares.Middleware
-	logger     *zerolog.Logger
-	cfg        *configs.Config
+	service        IService
+	limiter        Limiter
+	middleware     *middlewares.Middleware
+	logger         *zerolog.Logger
+	cfg            *configs.Config
+	oauthProviders []OAuthProvider
 }
 
 // NewHandler constructs a Handler with all required dependencies injected.
-func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middleware, logger *zerolog.Logger, cfg *configs.Config) *Handler {
+func NewHandler(
+	service IService,
+	limiter Limiter,
+	middleware *middlewares.Middleware,
+	logger *zerolog.Logger,
+	cfg *configs.Config,
+	oauthProviders ...OAuthProvider,
+) *Handler {
 	return &Handler{
-		service:    service,
-		limiter:    limiter,
-		middleware: middleware,
-		logger:     logger,
-		cfg:        cfg,
+		service:        service,
+		limiter:        limiter,
+		middleware:     middleware,
+		logger:         logger,
+		cfg:            cfg,
+		oauthProviders: oauthProviders,
 	}
 }
 
@@ -121,6 +142,18 @@ func (h *Handler) InitRoutes() *gin.Engine {
 				ginSwagger.URL("/api/v1/docs/swagger.yaml"),
 			))
 			v1.Static("/docs", "./docs")
+		}
+
+		oauth := v1.Group("/oauth")
+		{
+			for _, oauthProvider := range h.oauthProviders {
+
+				oauthPath := "/" + oauthProvider.ProviderName()
+				oauthCallbackPath := oauthPath + "/" + oauthProvider.CallbackPath()
+
+				oauth.GET(oauthPath, h.oauth(oauthProvider.OAuth2Config()))
+				oauth.GET(oauthCallbackPath, h.oauthCallback(oauthProvider))
+			}
 		}
 
 		v1.POST("/send_otp", h.sendOTP)

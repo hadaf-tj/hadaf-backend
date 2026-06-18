@@ -10,16 +10,17 @@ import (
 )
 
 type Config struct {
-	App      AppConfig
-	Security SecurityConfig
-	Database DatabaseConfig
-	Logger   LoggerConfig
-	SMS      SMSConfig
-	SMTP     SMTPConfig
-	Server   ServerConfig
-	Service  ServiceConfig
-	Redis    RedisConfig
-	Minio    MinioConfig
+	App         AppConfig
+	Security    SecurityConfig
+	Database    DatabaseConfig
+	Logger      LoggerConfig
+	SMS         SMSConfig
+	SMTP        SMTPConfig
+	Server      ServerConfig
+	Service     ServiceConfig
+	Redis       RedisConfig
+	Minio       MinioConfig
+	GoogleOAuth OAuthProviderConfig
 }
 
 type AppConfig struct {
@@ -91,6 +92,12 @@ type MinioConfig struct {
 	Endpoint  string
 	AccessKey string
 	SecretKey string
+}
+
+type OAuthProviderConfig struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
 }
 
 // Helper to read ENV with a default value.
@@ -191,6 +198,11 @@ func InitConfigs() (*Config, error) {
 			Endpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
 			AccessKey: getEnv("MINIO_ACCESS_KEY", "minio"),
 			SecretKey: getEnv("MINIO_SECRET_KEY", "minio"),
+		},
+		GoogleOAuth: OAuthProviderConfig{
+			ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
+			ClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
+			RedirectURL:  getEnv("GOOGLE_REDIRECT_URL", ""),
 		},
 	}, nil
 }

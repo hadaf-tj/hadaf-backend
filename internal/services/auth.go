@@ -187,6 +187,68 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.To
 	}, nil
 }
 
+func (s *Service) LoginOAuth(ctx context.Context, oauthInfo models.OAuthUserInfo) (*models.TokenResponse, error) {
+
+	if oauthInfo.Email == "" || !oauthInfo.EmailVerified {
+		return nil, myerrors.NewUnauthorizedErr("ERR_GOOGLE_EMAIL_NOT_VERIFIED")
+	}
+
+	user, err := s.GetUserByEmail(ctx, oauthInfo.Email)
+	if err != nil {
+		if !errors.Is(err, myerrors.ErrNotFound) {
+			return nil, myerrors.NewUnauthorizedErr("ERR_INVALID_CREDENTIALS")
+		}
+		user = &models.User{
+			OAuthUserID:       &oauthInfo.ID,
+			OAuthProviderName: &oauthInfo.OAuthProviderName,
+			Email:             &oauthInfo.Email,
+			Role:              models.RoleVolunteer,
+			IsActive:          true,
+			IsApproved:        false,
+			CreatedAt:         time.Now(),
+		}
+		if err = s.repo.CreateUser(ctx, user); err != nil {
+			return nil, err
+		}
+	}
+
+	if user.OAuthUserID != nil && *user.OAuthUserID != oauthInfo.ID ||
+		user.OAuthProviderName != nil && *user.OAuthProviderName != oauthInfo.OAuthProviderName {
+		return nil, myerrors.NewUnauthorizedErr("ERR_OAUTH_ACCOUNT_MISMATCH")
+	}
+
+	if user.OAuthUserID == nil || user.OAuthProviderName == nil {
+		if user, err = s.repo.UpdateUserOAuthInfoByEmail(ctx, oauthInfo); err != nil {
+			return nil, err
+		}
+	}
+
+	if !user.IsActive {
+		return nil, myerrors.NewUnauthorizedErr("ERR_ACCOUNT_NOT_ACTIVATED")
+	}
+
+	if user.Role == models.RoleEmployee && !user.IsApproved {
+		return nil, myerrors.NewForbiddenErr("ERR_ACCOUNT_PENDING_APPROVAL")
+	}
+
+	access, refresh, err := s.token.IssueTokens(ctx, user.ID, user.Role, user.IsApproved)
+	if err != nil {
+		return nil, fmt.Errorf("issue tokens err: %w", err)
+	}
+
+	refreshHash := utils.HashToken(refresh)
+	expiresAt := time.Now().UTC().Add(s.cfg.Security.RefreshTokenTTL)
+	if err := s.repo.SaveRefreshToken(ctx, user.ID, refreshHash, expiresAt); err != nil {
+		return nil, fmt.Errorf("failed to save refresh token: %w", err)
+	}
+
+	return &models.TokenResponse{
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}, nil
+
+}
+
 // RefreshTokens validates the provided refresh token, revokes it, and issues
 // a new access/refresh token pair (token rotation).
 func (s *Service) RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenResponse, error) {
@@ -295,4 +357,16 @@ func (s *Service) Register(ctx context.Context, email, phone, password, fullName
 // GetUserByID retrieves a user by their primary key.
 func (s *Service) GetUserByID(ctx context.Context, id int) (*models.User, error) {
 	return s.repo.GetUserByID(ctx, id)
+}
+
+func (s *Service) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	return s.repo.GetUserByEmail(ctx, email)
+}
+
+func (s *Service) CreateUser(ctx context.Context, user *models.User) error {
+	return s.repo.CreateUser(ctx, user)
+}
+
+func (s *Service) UpdateUserOAuthInfoByEmail(ctx context.Context, info models.OAuthUserInfo) (*models.User, error) {
+	return s.repo.UpdateUserOAuthInfoByEmail(ctx, info)
 }

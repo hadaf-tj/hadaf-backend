@@ -24,3 +24,12 @@ type CustomClaims struct {
 
 	jwt.RegisteredClaims
 }
+
+type OAuthUserInfo struct {
+	ID                string
+	Username          string
+	Email             string
+	EmailVerified     bool
+	OAuthProviderName string
+	AvatarURL         *string
+}

@@ -9,19 +9,21 @@ import "time"
 USERS
 */
 type dbUser struct {
-	ID            int        `db:"id"`
-	InstitutionID *int       `db:"institution_id"`
-	FullName      *string    `db:"full_name"`
-	Phone         *string    `db:"phone"`
-	Email         *string    `db:"email"`
-	Password      *string    `db:"password"`
-	Role          string     `db:"role"`
-	IsActive      bool       `db:"is_active"`
-	IsApproved    bool       `db:"is_approved"`
-	CreatedAt     time.Time  `db:"created_at"`
-	UpdatedAt     *time.Time `db:"updated_at"`
-	IsDeleted     bool       `db:"is_deleted"`
-	DeletedAt     *time.Time `db:"deleted_at"`
+	ID                int        `db:"id"`
+	OAuthProviderName *string    `db:"oauth_provider_name"`
+	OAuthUserID       *string    `db:"oauth_user_id"`
+	InstitutionID     *int       `db:"institution_id"`
+	FullName          *string    `db:"full_name"`
+	Phone             *string    `db:"phone"`
+	Email             *string    `db:"email"`
+	Password          *string    `db:"password"`
+	Role              string     `db:"role"`
+	IsActive          bool       `db:"is_active"`
+	IsApproved        bool       `db:"is_approved"`
+	CreatedAt         time.Time  `db:"created_at"`
+	UpdatedAt         *time.Time `db:"updated_at"`
+	IsDeleted         bool       `db:"is_deleted"`
+	DeletedAt         *time.Time `db:"deleted_at"`
 }
 
 /*

@@ -4,7 +4,11 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -15,7 +19,30 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
+	"golang.org/x/oauth2"
 )
+
+func (h *Handler) resetTokenCookies(c *gin.Context) {
+	isProduction := h.cfg.App.Env == "production"
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
 
 // setTokenCookies writes httpOnly cookies for the access and refresh tokens.
 func (h *Handler) setTokenCookies(c *gin.Context, tokens *models.TokenResponse) {
@@ -39,6 +66,30 @@ func (h *Handler) setTokenCookies(c *gin.Context, tokens *models.TokenResponse) 
 		MaxAge:   refreshMaxAge,
 		HttpOnly: true,
 		Secure:   isProduction,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (h *Handler) setOAuthStateCookie(c *gin.Context, state string) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    state,
+		Path:     "/",
+		MaxAge:   300,
+		HttpOnly: true,
+		Secure:   h.cfg.App.Env == "production",
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (h *Handler) resetOAuthStateCookie(c *gin.Context) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.cfg.App.Env == "production",
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -308,26 +359,7 @@ func (h *Handler) logout(c *gin.Context) {
 		}
 	}
 
-	isProduction := h.cfg.App.Env == "production"
-
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "access_token",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   isProduction,
-		SameSite: http.SameSiteLaxMode,
-	})
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   isProduction,
-		SameSite: http.SameSiteLaxMode,
-	})
+	h.resetTokenCookies(c)
 
 	log.Debug().Msg("user logged out")
 	h.success(c, gin.H{"message": "logged out"})
@@ -351,4 +383,74 @@ func (h *Handler) getMe(c *gin.Context) {
 	user.Password = nil
 
 	h.success(c, user)
+}
+
+func (h *Handler) oauth(cfg *oauth2.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if _, err := c.Cookie("refresh_token"); err != nil {
+			if !errors.Is(err, http.ErrNoCookie) {
+				h.handleError(c, err)
+				return
+			}
+			h.resetTokenCookies(c)
+		}
+
+		stateBytes := make([]byte, 64)
+		if _, err := io.ReadFull(rand.Reader, stateBytes); err != nil {
+			return
+		}
+
+		state := hex.EncodeToString(stateBytes)
+
+		h.setOAuthStateCookie(c, state)
+
+		c.Redirect(http.StatusTemporaryRedirect, cfg.AuthCodeURL(state))
+	}
+}
+
+func (h *Handler) oauthCallback(oauthProvider OAuthProvider) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code, isValid := validateOAuthCallback(c)
+		if !isValid {
+			h.handleError(c, myerrors.NewForbiddenErr("invalid callback"))
+			return
+		}
+
+		tok, err := oauthProvider.OAuth2Config().Exchange(c, code)
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+
+		oauthUserInfo, err := oauthProvider.GetUser(c, tok)
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+
+		h.resetOAuthStateCookie(c)
+
+		tokens, err := h.service.LoginOAuth(c, oauthUserInfo)
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+
+		h.setTokenCookies(c, tokens)
+
+		c.Redirect(http.StatusFound, "/")
+	}
+}
+
+func validateOAuthCallback(c *gin.Context) (code string, isValid bool) {
+	stateCookie, err := c.Cookie("oauth_state")
+	if err != nil {
+		return "", false
+	}
+
+	if state := c.Query("state"); state == "" || state != stateCookie {
+		return "", false
+	}
+
+	return c.Query("code"), true
 }
