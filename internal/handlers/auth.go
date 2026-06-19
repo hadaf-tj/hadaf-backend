@@ -6,7 +6,6 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"shb/internal/models"
@@ -21,7 +20,7 @@ import (
 func (h *Handler) setTokenCookies(c *gin.Context, tokens *models.TokenResponse) {
 	accessMaxAge := int(h.cfg.Security.AccessTokenTTL.Seconds())
 	refreshMaxAge := int(h.cfg.Security.RefreshTokenTTL.Seconds())
-	isProduction := h.cfg.App.Env == "production"
+	isProduction := h.cfg.App.IsProduction()
 
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "access_token",
@@ -158,8 +157,7 @@ func (h *Handler) register(c *gin.Context) {
 	c.Request = c.Request.WithContext(ctx)
 
 	// Apply rate limiting only in non-local environments.
-	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
-	if !isLocal {
+	if !h.cfg.App.IsLocal() {
 		ipKey := fmt.Sprintf("register_ip:%s", c.ClientIP())
 		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600) // Max 3 registrations per hour per IP.
 		if err != nil {
@@ -228,8 +226,7 @@ func (h *Handler) login(c *gin.Context) {
 	}
 
 	// Apply rate limiting only in non-local environments.
-	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
-	if !isLocal {
+	if !h.cfg.App.IsLocal() {
 		// Rate limit login — max 5 attempts per 15 minutes per email.
 		loginKey := fmt.Sprintf("login:%s", in.Email)
 		allowed, err := h.limiter.Allow(ctx, loginKey, 5, 900) // 900 seconds = 15 min.
@@ -260,8 +257,7 @@ func (h *Handler) refreshTokens(c *gin.Context) {
 	logger := h.logger.With().Ctx(ctx).Str("handler", "refreshTokens").Logger()
 
 	// Apply rate limiting only in non-local environments.
-	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
-	if !isLocal {
+	if !h.cfg.App.IsLocal() {
 		// Use IP for refresh limiting to prevent endpoint hammering.
 		ipKey := fmt.Sprintf("refresh_ip:%s", c.ClientIP())
 		allowed, err := h.limiter.Allow(ctx, ipKey, 10, 60) // Max 10 refreshes per minute per IP.
@@ -308,7 +304,7 @@ func (h *Handler) logout(c *gin.Context) {
 		}
 	}
 
-	isProduction := h.cfg.App.Env == "production"
+	isProduction := h.cfg.App.IsProduction()
 
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "access_token",
@@ -342,6 +338,34 @@ func (h *Handler) getMe(c *gin.Context) {
 	}
 
 	user, err := h.service.GetUserByID(c.Request.Context(), userID.(int))
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	// Clear the password hash before sending the response.
+	user.Password = nil
+
+	h.success(c, user)
+}
+
+func (h *Handler) updateProfile(c *gin.Context) {
+	userID, abort := h.mustGetUserID(c)
+	if abort {
+		return
+	}
+
+	in := struct {
+		FullName *string `json:"full_name"`
+		Phone    *string `json:"phone"`
+	}{}
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		h.handleError(c, myerrors.NewBadRequestErr("invalid input parameters"))
+		return
+	}
+
+	user, err := h.service.UpdateProfile(c.Request.Context(), userID, in.FullName, in.Phone)
 	if err != nil {
 		h.handleError(c, err)
 		return

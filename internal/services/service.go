@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"shb/internal/configs"
@@ -29,8 +30,14 @@ type IRepository interface {
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
 	// CreateUser persists a new user record to the database.
 	CreateUser(ctx context.Context, user *models.User) error
+	// UpdateUserProfile patches the editable profile fields (only the non-nil
+	// arguments are written) and returns the refreshed user.
+	UpdateUserProfile(ctx context.Context, id int, fullName, phone *string) (*models.User, error)
 	// ActivateUser marks the user account as active.
 	ActivateUser(ctx context.Context, id int) error
+
+	// Ping verifies connectivity to the database (used by readiness checks).
+	Ping(ctx context.Context) error
 
 	// SaveOTP persists a new OTP record to the database.
 	SaveOTP(ctx context.Context, o *models.OTP) (int, error)
@@ -62,6 +69,9 @@ type IRepository interface {
 	UpdateBookingStatus(ctx context.Context, bookingID int, status string) error
 	UpdateBookingQuantity(ctx context.Context, bookingID int, qty float64) error
 	IncrementReceivedQty(ctx context.Context, needID int, qty float64) error
+	// CompleteBookingTx atomically completes a booking and applies its quantity
+	// to the need in a single transaction.
+	CompleteBookingTx(ctx context.Context, bookingID, needID int, qty float64) error
 	GetBookingsByInstitution(ctx context.Context, institutionID int) ([]*models.Booking, error)
 
 	// --- Event Methods ---
@@ -105,6 +115,19 @@ type Service struct {
 	token  tokens.ITokenIssuer
 	fs     fs.Storage
 	email  email.IEmailAdapter
+}
+
+// HealthCheck verifies that the critical downstream dependencies (database and
+// cache) are reachable. It is used by the readiness probe so an orchestrator
+// does not route traffic to an instance that cannot serve requests.
+func (s *Service) HealthCheck(ctx context.Context) error {
+	if err := s.repo.Ping(ctx); err != nil {
+		return fmt.Errorf("database unreachable: %w", err)
+	}
+	if err := s.cache.Ping(ctx); err != nil {
+		return fmt.Errorf("cache unreachable: %w", err)
+	}
+	return nil
 }
 
 // NewService constructs a Service with all required dependencies injected.
