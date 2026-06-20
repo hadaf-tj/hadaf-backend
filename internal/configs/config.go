@@ -24,8 +24,9 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Port string
-	Env  string
+	FrontendURL string
+	Port        string
+	Env         string
 }
 
 type SecurityConfig struct {
@@ -151,8 +152,9 @@ func InitConfigs() (*Config, error) {
 
 	return &Config{
 		App: AppConfig{
-			Port: getEnv("APP_PORT", ":8000"),
-			Env:  getEnv("APP_ENV", "prod"),
+			Port:        getEnv("APP_PORT", ":8000"),
+			Env:         getEnv("APP_ENV", "prod"),
+			FrontendURL: getEnv("APP_FRONTEND_URL", "http://localhost:3000"),
 		},
 		Security: security,
 		Database: DatabaseConfig{
