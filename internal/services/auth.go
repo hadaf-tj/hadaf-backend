@@ -166,6 +166,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.To
 		return nil, myerrors.NewForbiddenErr("ERR_ACCOUNT_PENDING_APPROVAL")
 	}
 
+	if user.Password == nil || *user.Password == "" {
+		return nil, myerrors.NewUnauthorizedErr("ERR_INVALID_CREDENTIALS")
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(password)); err != nil {
 		return nil, myerrors.NewUnauthorizedErr("ERR_INVALID_CREDENTIALS")
 	}
@@ -187,6 +191,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.To
 	}, nil
 }
 
+// LoginOAuth authenticates user by an OAuth provider information, issuing new token pair
+// on success.
+//
+// In case user does not exist, one is created by given data.
 func (s *Service) LoginOAuth(ctx context.Context, oauthInfo models.OAuthUserInfo) (*models.TokenResponse, error) {
 
 	if oauthInfo.Email == "" || !oauthInfo.EmailVerified {
@@ -201,6 +209,8 @@ func (s *Service) LoginOAuth(ctx context.Context, oauthInfo models.OAuthUserInfo
 		user = &models.User{
 			OAuthUserID:       &oauthInfo.ID,
 			OAuthProviderName: &oauthInfo.OAuthProviderName,
+			AvatarURL:         oauthInfo.AvatarURL,
+			FullName:          &oauthInfo.Username,
 			Email:             &oauthInfo.Email,
 			Role:              models.RoleVolunteer,
 			IsActive:          true,
