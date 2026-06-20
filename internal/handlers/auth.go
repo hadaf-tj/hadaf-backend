@@ -70,10 +70,20 @@ func (h *Handler) setTokenCookies(c *gin.Context, tokens *models.TokenResponse) 
 	})
 }
 
-func (h *Handler) setOAuthStateCookie(c *gin.Context, state string) {
+func (h *Handler) setOAuthStateCookies(c *gin.Context, state *models.OAuthState) {
+	isProduction := h.cfg.App.Env == "production"
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "oauth_state",
-		Value:    state,
+		Value:    state.Value,
+		Path:     "/",
+		MaxAge:   300,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_return_to",
+		Value:    state.ReturnTo,
 		Path:     "/",
 		MaxAge:   300,
 		HttpOnly: true,
@@ -82,9 +92,18 @@ func (h *Handler) setOAuthStateCookie(c *gin.Context, state string) {
 	})
 }
 
-func (h *Handler) resetOAuthStateCookie(c *gin.Context) {
+func (h *Handler) resetOAuthStateCookies(c *gin.Context) {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.cfg.App.Env == "production",
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_return_to",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
@@ -385,6 +404,8 @@ func (h *Handler) getMe(c *gin.Context) {
 	h.success(c, user)
 }
 
+// oauth handles the start of server-side OAuth authentication, by redirecting
+// user to OAuth provider's consent page.
 func (h *Handler) oauth(cfg *oauth2.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if _, err := c.Cookie("refresh_token"); err != nil {
@@ -402,12 +423,17 @@ func (h *Handler) oauth(cfg *oauth2.Config) gin.HandlerFunc {
 
 		state := hex.EncodeToString(stateBytes)
 
-		h.setOAuthStateCookie(c, state)
+		h.setOAuthStateCookies(c, &models.OAuthState{
+			Value:    state,
+			ReturnTo: c.Query("return_to"),
+		})
 
 		c.Redirect(http.StatusTemporaryRedirect, cfg.AuthCodeURL(state))
 	}
 }
 
+// oauthCallback handles OAuth provider's callback after a successful user
+// consent.
 func (h *Handler) oauthCallback(oauthProvider OAuthProvider) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code, isValid := validateOAuthCallback(c)
@@ -428,8 +454,6 @@ func (h *Handler) oauthCallback(oauthProvider OAuthProvider) gin.HandlerFunc {
 			return
 		}
 
-		h.resetOAuthStateCookie(c)
-
 		tokens, err := h.service.LoginOAuth(c, oauthUserInfo)
 		if err != nil {
 			h.handleError(c, err)
@@ -438,10 +462,27 @@ func (h *Handler) oauthCallback(oauthProvider OAuthProvider) gin.HandlerFunc {
 
 		h.setTokenCookies(c, tokens)
 
-		c.Redirect(http.StatusFound, "/")
+		returnTo, err := c.Cookie("oauth_return_to")
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+		h.resetOAuthStateCookies(c)
+
+		redirectURL := h.cfg.App.FrontendURL
+
+		if strings.HasPrefix(returnTo, "/") &&
+			!strings.HasPrefix(returnTo, "//") &&
+			!strings.Contains(returnTo, "\\") {
+			redirectURL += returnTo
+		}
+
+		c.Redirect(http.StatusFound, redirectURL)
 	}
 }
 
+// validateOAuthCallback checks returned oauth state against stored one from
+// cookies, and returns authorization code.
 func validateOAuthCallback(c *gin.Context) (code string, isValid bool) {
 	stateCookie, err := c.Cookie("oauth_state")
 	if err != nil {
@@ -452,5 +493,7 @@ func validateOAuthCallback(c *gin.Context) (code string, isValid bool) {
 		return "", false
 	}
 
-	return c.Query("code"), true
+	code = c.Query("code")
+
+	return code, code != ""
 }

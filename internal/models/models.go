@@ -33,3 +33,8 @@ type OAuthUserInfo struct {
 	OAuthProviderName string
 	AvatarURL         *string
 }
+
+type OAuthState struct {
+	Value    string
+	ReturnTo string
+}
