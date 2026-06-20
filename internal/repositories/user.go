@@ -22,6 +22,7 @@ func (r *Repository) GetUserByPhone(ctx context.Context, phone string) (*models.
 			id,
 			oauth_provider_name,
 			oauth_user_id,
+			avatar_url,
 			institution_id,
 			full_name,
 			phone,
@@ -40,6 +41,7 @@ func (r *Repository) GetUserByPhone(ctx context.Context, phone string) (*models.
 		&u.ID,
 		&u.OAuthProviderName,
 		&u.OAuthUserID,
+		&u.AvatarURL,
 		&u.InstitutionID,
 		&u.FullName,
 		&u.Phone,
@@ -69,6 +71,7 @@ func (r *Repository) GetUserByID(ctx context.Context, id int) (*models.User, err
 			id,
 			oauth_provider_name,
 			oauth_user_id,
+			avatar_url,
 			institution_id,
 			full_name,
 			phone,
@@ -87,6 +90,7 @@ func (r *Repository) GetUserByID(ctx context.Context, id int) (*models.User, err
 		&u.ID,
 		&u.OAuthProviderName,
 		&u.OAuthUserID,
+		&u.AvatarURL,
 		&u.InstitutionID,
 		&u.FullName,
 		&u.Phone,
@@ -115,6 +119,7 @@ func (r *Repository) CreateUser(ctx context.Context, u *models.User) error {
 		INSERT INTO users (
 			oauth_provider_name,
 			oauth_user_id,
+			avatar_url,
 			institution_id,
 			full_name,
 			phone,
@@ -125,7 +130,7 @@ func (r *Repository) CreateUser(ctx context.Context, u *models.User) error {
 			is_approved,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
 		RETURNING id, created_at, updated_at
 	`
 	err := r.postgres.QueryRow(
@@ -133,6 +138,7 @@ func (r *Repository) CreateUser(ctx context.Context, u *models.User) error {
 		query,
 		u.OAuthProviderName,
 		u.OAuthUserID,
+		u.AvatarURL,
 		u.InstitutionID,
 		u.FullName,
 		u.Phone,
@@ -164,6 +170,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*models.
 			id,
 			oauth_provider_name,
 			oauth_user_id,
+			avatar_url,
 			institution_id,
 			full_name,
 			phone,
@@ -182,6 +189,7 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*models.
 		&u.ID,
 		&u.OAuthProviderName,
 		&u.OAuthUserID,
+		&u.AvatarURL,
 		&u.InstitutionID,
 		&u.FullName,
 		&u.Phone,
@@ -209,6 +217,7 @@ func (r *Repository) GetUserByOAuthInfo(ctx context.Context, oauthUserID, oauthP
 			id,
 			oauth_provider_name,
 			oauth_user_id,
+			avatar_url,
 			institution_id,
 			full_name,
 			phone,
@@ -230,6 +239,7 @@ func (r *Repository) GetUserByOAuthInfo(ctx context.Context, oauthUserID, oauthP
 		&u.ID,
 		&u.OAuthProviderName,
 		&u.OAuthUserID,
+		&u.AvatarURL,
 		&u.InstitutionID,
 		&u.FullName,
 		&u.Phone,
@@ -252,17 +262,21 @@ func (r *Repository) GetUserByOAuthInfo(ctx context.Context, oauthUserID, oauthP
 	return u.ToDomain(), nil
 }
 
+// UpdateUserOAuthInfoByEmail sets oauth_user_id, oauth_provider_name and
+// avatar_url using data from info.
 func (r *Repository) UpdateUserOAuthInfoByEmail(ctx context.Context, info models.OAuthUserInfo) (*models.User, error) {
 	const query = `
 		UPDATE users SET
 			oauth_user_id = $1,
 			oauth_provider_name = $2,
+			avatar_url = $3,
 			updated_at = NOW()
-		WHERE email = $3
+		WHERE email = $4
 		RETURNING
 			id,
 			oauth_provider_name,
 			oauth_user_id,
+			avatar_url,
 			institution_id,
 			full_name,
 			phone,
@@ -274,17 +288,19 @@ func (r *Repository) UpdateUserOAuthInfoByEmail(ctx context.Context, info models
 			created_at,
 			updated_at
 	`
-	var u models.User
+	var u dbUser
 	err := r.postgres.QueryRow(
 		ctx,
 		query,
 		info.ID,
 		info.OAuthProviderName,
+		info.AvatarURL,
 		info.Email,
 	).Scan(
 		&u.ID,
 		&u.OAuthProviderName,
 		&u.OAuthUserID,
+		&u.AvatarURL,
 		&u.InstitutionID,
 		&u.FullName,
 		&u.Phone,
@@ -299,5 +315,5 @@ func (r *Repository) UpdateUserOAuthInfoByEmail(ctx context.Context, info models
 	if err != nil {
 		return nil, err
 	}
-	return &u, nil
+	return u.ToDomain(), nil
 }

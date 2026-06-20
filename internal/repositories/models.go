@@ -12,6 +12,7 @@ type dbUser struct {
 	ID                int        `db:"id"`
 	OAuthProviderName *string    `db:"oauth_provider_name"`
 	OAuthUserID       *string    `db:"oauth_user_id"`
+	AvatarURL         *string    `db:"avatar_url"`
 	InstitutionID     *int       `db:"institution_id"`
 	FullName          *string    `db:"full_name"`
 	Phone             *string    `db:"phone"`

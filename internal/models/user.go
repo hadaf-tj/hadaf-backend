@@ -18,6 +18,7 @@ type User struct {
 	ID                int        `json:"id"`
 	OAuthProviderName *string    `json:"oauth_provider_name"`
 	OAuthUserID       *string    `json:"oauth_user_id"`
+	AvatarURL         *string    `json:"avatar_url"`
 	InstitutionID     *int       `json:"institution_id"`
 	FullName          *string    `json:"full_name"`
 	Phone             *string    `json:"phone"`

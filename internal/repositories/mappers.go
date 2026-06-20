@@ -16,6 +16,7 @@ func (u *dbUser) ToDomain() *models.User {
 		ID:                u.ID,
 		OAuthProviderName: u.OAuthProviderName,
 		OAuthUserID:       u.OAuthUserID,
+		AvatarURL:         u.AvatarURL,
 		InstitutionID:     u.InstitutionID,
 		FullName:          u.FullName,
 		Phone:             u.Phone,
