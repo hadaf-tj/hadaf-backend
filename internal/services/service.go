@@ -31,6 +31,10 @@ type IRepository interface {
 	CreateUser(ctx context.Context, user *models.User) error
 	// ActivateUser marks the user account as active.
 	ActivateUser(ctx context.Context, id int) error
+	// GetUserByOAuthInfo return the user that matches the given OAuth user id and provider name.
+	GetUserByOAuthInfo(ctx context.Context, oauthUserID, oauthProviderName string) (*models.User, error)
+	// UpdateUserOAuthInfoByEmail updates user's oauth provider name and oauth user id by email from info
+	UpdateUserOAuthInfoByEmail(ctx context.Context, info models.OAuthUserInfo) (*models.User, error)
 
 	// SaveOTP persists a new OTP record to the database.
 	SaveOTP(ctx context.Context, o *models.OTP) (int, error)
