@@ -1,4 +1,4 @@
-FROM golang:1.25.0-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ COPY --from=builder /app/internal/configs ./configs
 COPY --from=builder /app/docs ./docs
 
 # 3. КРИТИЧЕСКИ ВАЖНО: Отдаем права на папку /app нашему новому пользователю.
-# Без этого приложение на Go упадет с ошибкой "permission denied", 
+# Без этого приложение на Go упадет с ошибкой "permission denied",
 # когда попытается записать файл в /app/logs
 RUN chown -R hadafuser:hadafgroup /app
 

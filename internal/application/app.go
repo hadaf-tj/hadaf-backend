@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"shb/internal/configs"
 	"shb/internal/handlers"
+	"shb/internal/oauth"
 	"shb/internal/repositories"
 	"shb/internal/server"
 	"shb/internal/services"
@@ -118,7 +119,9 @@ func NewApplication() *App {
 	// We pass emailAdapter here as it was required by Service constructor
 	service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage, emailAdapter)
 
-	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
+	googleOAuthProvider := oauth.NewGoogleProvider(&cfg.GoogleOAuth)
+
+	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg, googleOAuthProvider)
 
 	// 5. Server (Map config)
 	readTimeout, _ := time.ParseDuration(cfg.Server.ReadTimeout)
