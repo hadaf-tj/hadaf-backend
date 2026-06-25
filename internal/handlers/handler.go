@@ -55,6 +55,7 @@ type IService interface {
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
 	CancelMyBooking(ctx context.Context, bookingID int, userID int) error
 	UpdateMyBooking(ctx context.Context, bookingID int, userID int, qty float64) error
+	UserExists(ctx context.Context, email string, phone string) (bool, bool, bool, error)
 
 	// --- Event Methods ---
 	CreateEvent(ctx context.Context, e *models.Event) (int, error)

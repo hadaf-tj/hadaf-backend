@@ -52,6 +52,10 @@ func NewApplication() *App {
 	if err != nil {
 		panic("failed to initialize logger: " + err.Error())
 	}
+	log.Info().
+		Str("smtp_user", cfg.SMTP.Username).
+		Bool("smtp_password_set", cfg.SMTP.Password != "").
+		Msg("smtp config loaded")
 
 	postgresConn, err := pgx.NewPgxPool()
 	if err != nil {
