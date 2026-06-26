@@ -219,24 +219,45 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 	logger.Debug().Str("receiver", in.Receiver).Msg("OTP confirmed successfully")
 	h.setTokenCookies(c, response)
 	h.success(c, nil) // Tokens are set as httpOnly cookies; not returned in the body.
+	logger.Error().
+		Err(err).
+		Str("receiver", in.Receiver).
+		Msg("service.ConfirmOTPAndIssueToken error")
+
 }
 
 func (h *Handler) register(c *gin.Context) {
 	ctx := c.Request.Context()
-	log := zerolog.Ctx(ctx).With().Str("handler", "register").Logger()
+
+	log := zerolog.Ctx(ctx).
+		With().
+		Str("handler", "register").
+		Logger()
+
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
-	// Apply rate limiting only in non-local environments.
-	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
+	isLocal := os.Getenv("APP_ENV") == "development" ||
+		os.Getenv("APP_ENV") == "local"
+
 	if !isLocal {
 		ipKey := fmt.Sprintf("register_ip:%s", c.ClientIP())
-		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600) // Max 3 registrations per hour per IP.
+
+		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600)
+
 		if err != nil {
-			log.Error().Err(err).Msg("rate limiter error for register")
+			log.Error().
+				Err(err).
+				Msg("register rate limiter error")
 		}
+
 		if !allowed {
-			h.handleError(c, myerrors.NewTooManyRequestsErr("ERR_RATE_LIMIT_REGISTRATION"))
+			h.handleError(
+				c,
+				myerrors.NewTooManyRequestsErr(
+					"ERR_RATE_LIMIT_REGISTRATION",
+				),
+			)
 			return
 		}
 	}
@@ -251,35 +272,117 @@ func (h *Handler) register(c *gin.Context) {
 	}{}
 
 	if err := c.ShouldBindJSON(&in); err != nil {
-		h.handleError(c, myerrors.NewBadRequestErr("invalid input parameters"))
-		return
-	}
+		log.Warn().
+			Err(err).
+			Msg("invalid register body")
 
-	// Validate password — minimum 8 characters.
-	if len(in.Password) < 8 {
-		h.handleError(c, myerrors.NewBadRequestErr("password must be at least 8 characters"))
-		return
-	}
-
-	// Validate role — only allow safe values.
-	if in.Role != "volunteer" && in.Role != "employee" {
-		h.handleError(c, myerrors.NewBadRequestErr("invalid role: must be volunteer or employee"))
+		h.handleError(
+			c,
+			myerrors.NewBadRequestErr(
+				"invalid input parameters",
+			),
+		)
 		return
 	}
 
 	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
+	in.Phone = strings.TrimSpace(in.Phone)
+	in.FullName = strings.TrimSpace(in.FullName)
 
-	_, err := h.service.Register(ctx, in.Email, in.Phone, in.Password, in.FullName, in.Role, in.InstitutionID)
-	if err != nil {
-		h.handleError(c, err)
+	if len(in.Password) < 8 {
+		h.handleError(
+			c,
+			myerrors.NewBadRequestErr(
+				"password must be at least 8 characters",
+			),
+		)
 		return
 	}
 
-	log.Debug().Str("email", in.Email).Str("role", in.Role).Msg("user registered")
-	h.success(c, gin.H{
-		"message": "verification_required",
-		"email":   in.Email,
-	})
+	if in.Role != "volunteer" && in.Role != "employee" {
+		h.handleError(
+			c,
+			myerrors.NewBadRequestErr(
+				"invalid role: must be volunteer or employee",
+			),
+		)
+		return
+	}
+
+	exists, emailExists, phoneExists, err := h.service.UserExists(
+		ctx,
+		in.Email,
+		in.Phone,
+	)
+
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("checking existing user failed")
+
+		h.handleError(
+			c,
+			myerrors.ErrGeneral,
+		)
+		return
+	}
+	if exists {
+		switch {
+		case emailExists && phoneExists:
+			h.handleError(
+				c,
+				myerrors.NewConflictErr(
+					"email and phone already registered",
+				),
+			)
+		case emailExists:
+			h.handleError(
+				c,
+				myerrors.NewConflictErr(
+					"email already registered",
+				),
+			)
+		case phoneExists:
+			h.handleError(
+				c,
+				myerrors.NewConflictErr(
+					"phone number already registered",
+				),
+			)
+		}
+		return
+	}
+	_, err = h.service.Register(
+		ctx,
+		in.Email,
+		in.Phone,
+		in.Password,
+		in.FullName,
+		in.Role,
+		in.InstitutionID,
+	)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("email", in.Email).
+			Msg("registration failed")
+		h.handleError(
+			c,
+			err,
+		)
+		return
+	}
+	log.Info().
+		Str("email", in.Email).
+		Str("role", in.Role).
+		Msg("user registration started")
+	h.success(
+		c,
+		gin.H{
+			"message": "verification_required",
+			"email":   in.Email,
+		},
+	)
 }
 
 func (h *Handler) login(c *gin.Context) {
