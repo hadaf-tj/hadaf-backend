@@ -27,6 +27,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/pkg/errors"
 )
 
@@ -57,6 +60,17 @@ func NewApplication() *App {
 		Str("smtp_user", cfg.SMTP.Username).
 		Bool("smtp_password_set", cfg.SMTP.Password != "").
 		Msg("smtp config loaded")
+
+	m, err := migrate.New("file://migration", cfg.Database.DSN)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize migrations")
+	} else {
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			log.Fatal().Err(err).Msg("failed to apply migrations")
+		} else {
+			log.Info().Msg("database migrations applied successfully")
+		}
+	}
 
 	postgresConn, err := pgx.NewPgxPool()
 	if err != nil {

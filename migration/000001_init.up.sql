@@ -18,9 +18,7 @@ CREATE TABLE IF NOT EXISTS institutions (
     deleted_at TIMESTAMPTZ DEFAULT NULL,
     needs_count INT DEFAULT 0,
     events_count INT DEFAULT 0,
-    wards_count INT DEFAULT 0,
-    prohibited_items TEXT,
-    recommended_items TEXT
+    wards_count INT DEFAULT 0
 );
 
 -- Таблица пользователей
@@ -74,7 +72,6 @@ CREATE TABLE IF NOT EXISTS needs_history (
     is_deleted BOOLEAN DEFAULT FALSE,
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
-
 
 -- Таблица OTP (Одноразовые пароли для входа/регистрации)
 CREATE TABLE IF NOT EXISTS otp (
@@ -168,6 +165,7 @@ CREATE INDEX IF NOT EXISTS idx_events_event_date ON events(event_date);
 CREATE INDEX IF NOT EXISTS idx_events_institution_id ON events(institution_id);
 CREATE INDEX IF NOT EXISTS idx_events_creator_id ON events(creator_id);
 CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);
+
 -- Таблица для хранения и ротации refresh-токенов
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id           SERIAL PRIMARY KEY,
@@ -179,5 +177,3 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
-
-

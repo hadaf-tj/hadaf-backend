@@ -26,6 +26,7 @@ RUN mkdir -p /app/logs
 COPY --from=builder /app/main .
 COPY --from=builder /app/internal/configs ./configs
 COPY --from=builder /app/docs ./docs
+COPY --from=builder /app/migration ./migration
 
 # 3. КРИТИЧЕСКИ ВАЖНО: Отдаем права на папку /app нашему новому пользователю.
 # Без этого приложение на Go упадет с ошибкой "permission denied",
