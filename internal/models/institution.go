@@ -22,6 +22,8 @@ type Institution struct {
 	UpdatedAt     *time.Time `json:"updated_at"`
 	IsDeleted     bool       `json:"is_deleted"`
 	DeletedAt     *time.Time `json:"deleted_at"`
-	NeedsCount    int        `json:"needs_count"`
-	WardsCount    int        `json:"wards_count"`
+	NeedsCount       int        `json:"needs_count"`
+	WardsCount       int        `json:"wards_count"`
+	ProhibitedItems  *string    `json:"prohibited_items"`
+	RecommendedItems *string    `json:"recommended_items"`
 }
