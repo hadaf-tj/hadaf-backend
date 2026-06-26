@@ -10,6 +10,17 @@ import (
 )
 
 type Config struct {
+	App      AppConfig
+	Security SecurityConfig
+	Database DatabaseConfig
+	Logger   LoggerConfig
+	SMS      SMSConfig
+	Telegram TelegramConfig
+	SMTP     SMTPConfig
+	Server   ServerConfig
+	Service  ServiceConfig
+	Redis    RedisConfig
+	Minio    MinioConfig
 	App         AppConfig
 	Security    SecurityConfig
 	Database    DatabaseConfig
@@ -95,6 +106,10 @@ type MinioConfig struct {
 	SecretKey string
 }
 
+type TelegramConfig struct {
+	BaseURL string
+	Token   string
+	ChatID  string
 type OAuthProviderConfig struct {
 	ClientID     string
 	ClientSecret string
@@ -201,6 +216,10 @@ func InitConfigs() (*Config, error) {
 			AccessKey: getEnv("MINIO_ACCESS_KEY", "minio"),
 			SecretKey: getEnv("MINIO_SECRET_KEY", "minio"),
 		},
+		Telegram: TelegramConfig{
+			Token:   getEnv("TELEGRAM_ALERT_TOKEN", ""),
+			ChatID:  getEnv("TELEGRAM_ALERT_CHAT_ID", ""),
+			BaseURL: getEnv("TELEGRAM_BASE_URL", "https://api.telegram.org"),
 		GoogleOAuth: OAuthProviderConfig{
 			ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
 			ClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),

@@ -60,6 +60,7 @@ type IService interface {
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
 	CancelMyBooking(ctx context.Context, bookingID int, userID int) error
 	UpdateMyBooking(ctx context.Context, bookingID int, userID int, qty float64) error
+	UserExists(ctx context.Context, email string, phone string) (bool, bool, bool, error)
 
 	// --- Event Methods ---
 	CreateEvent(ctx context.Context, e *models.Event) (int, error)
@@ -130,7 +131,7 @@ func NewHandler(
 // InitRoutes registers all application routes and returns the configured Gin engine.
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
-	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID())
+	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.AlertMiddleware())
 	router.NoRoute(h.noRoute)
 
 	router.GET("/ping", h.ping)
@@ -144,6 +145,17 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			v1.Static("/docs", "./docs")
 		}
 
+		v1.GET("/telegram/panic", func(c *gin.Context) {
+			panic("telegram test")
+		})
+		v1.GET("/telegram/5xx", func(c *gin.Context) {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"error": "test 500",
+				},
+			)
+		})
 		oauth := v1.Group("/oauth")
 		{
 			for _, oauthProvider := range h.oauthProviders {

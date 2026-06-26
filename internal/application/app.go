@@ -21,6 +21,7 @@ import (
 	"shb/pkg/external/sms/smsProvider"
 	"shb/pkg/logger"
 	"shb/pkg/middlewares"
+	"shb/pkg/notifier"
 	"shb/pkg/rateLimiter/customLimiter"
 	"shb/pkg/tokens/jwtToken"
 	"syscall"
@@ -52,6 +53,10 @@ func NewApplication() *App {
 	if err != nil {
 		panic("failed to initialize logger: " + err.Error())
 	}
+	log.Info().
+		Str("smtp_user", cfg.SMTP.Username).
+		Bool("smtp_password_set", cfg.SMTP.Password != "").
+		Msg("smtp config loaded")
 
 	postgresConn, err := pgx.NewPgxPool()
 	if err != nil {
@@ -87,6 +92,13 @@ func NewApplication() *App {
 	// 4. Initialize SMTP Email Adapter
 	emailAdapter := smtpEmail.NewSMTPEmail(&cfg.SMTP)
 
+	log.Info().
+		Bool(
+			"telegram_alerts_enabled",
+			cfg.Telegram.Token != "" && cfg.Telegram.ChatID != "",
+		).
+		Msg("telegram notifier initialized")
+
 	token := jwtToken.NewJwtTokenIssuer(
 		cfg.Security.JWTSecretKey,
 		cfg.Security.AccessTokenTTL,
@@ -94,7 +106,12 @@ func NewApplication() *App {
 	)
 
 	// 4. Middleware (Pass secret)
-	middleware := middlewares.NewMiddleware(cfg.Security.JWTSecretKey)
+	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram)
+
+	middleware := middlewares.NewMiddleware(
+		cfg.Security.JWTSecretKey,
+		telegramNotifier,
+	)
 
 	repository := repositories.NewRepository(postgresConn, &log.Logger)
 
