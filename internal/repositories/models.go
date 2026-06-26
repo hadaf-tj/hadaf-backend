@@ -64,7 +64,9 @@ type dbInstitution struct {
 	UpdatedAt     *time.Time `db:"updated_at"`
 	IsDeleted     bool       `db:"is_deleted"`
 	DeletedAt     *time.Time `db:"deleted_at"`
-	WardsCount    int        `db:"wards_count"`
+	WardsCount       int        `db:"wards_count"`
+	ProhibitedItems  *string    `db:"prohibited_items"`
+	RecommendedItems *string    `db:"recommended_items"`
 }
 
 /*

@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS institutions (
     deleted_at TIMESTAMPTZ DEFAULT NULL,
     needs_count INT DEFAULT 0,
     events_count INT DEFAULT 0,
-    wards_count INT DEFAULT 0
+    wards_count INT DEFAULT 0,
+    prohibited_items TEXT,
+    recommended_items TEXT
 );
 
 -- Таблица пользователей
