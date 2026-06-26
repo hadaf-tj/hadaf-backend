@@ -138,7 +138,7 @@ func (h *Handler) sendOTP(c *gin.Context) {
 
 	key := fmt.Sprintf("user:%s:send_otp", in.Receiver)
 	ok, err := h.limiter.Allow(ctx, key, h.cfg.Service.Security.SendOTPAttempts,
-		int(h.cfg.Service.Security.SendOTPBlockTime.Seconds()))
+		int(h.cfg.Service.Security.SendOTPBlockTime.Minutes()))
 	if err != nil {
 		logger.Warn().Err(err).Msg("limiter.Allow error")
 		h.handleError(c, myerrors.ErrGeneral)
@@ -231,7 +231,7 @@ func (h *Handler) register(c *gin.Context) {
 	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
 	if !isLocal {
 		ipKey := fmt.Sprintf("register_ip:%s", c.ClientIP())
-		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600) // Max 3 registrations per hour per IP.
+		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 60) // Max 3 registrations per hour per IP.
 		if err != nil {
 			log.Error().Err(err).Msg("rate limiter error for register")
 		}
@@ -302,7 +302,7 @@ func (h *Handler) login(c *gin.Context) {
 	if !isLocal {
 		// Rate limit login — max 5 attempts per 15 minutes per email.
 		loginKey := fmt.Sprintf("login:%s", in.Email)
-		allowed, err := h.limiter.Allow(ctx, loginKey, 5, 900) // 900 seconds = 15 min.
+		allowed, err := h.limiter.Allow(ctx, loginKey, 5, 15) // 15 min.
 		if err != nil {
 			logger.Error().Err(err).Msg("rate limiter error")
 		}
@@ -334,7 +334,7 @@ func (h *Handler) refreshTokens(c *gin.Context) {
 	if !isLocal {
 		// Use IP for refresh limiting to prevent endpoint hammering.
 		ipKey := fmt.Sprintf("refresh_ip:%s", c.ClientIP())
-		allowed, err := h.limiter.Allow(ctx, ipKey, 10, 60) // Max 10 refreshes per minute per IP.
+		allowed, err := h.limiter.Allow(ctx, ipKey, 10, 1) // Max 10 refreshes per minute per IP.
 		if err != nil {
 			logger.Error().Err(err).Msg("rate limiter error for refresh")
 		}
