@@ -3,7 +3,7 @@
 ## Description
 This repository contains the backend service for the Hadaf platform. It provides RESTful APIs and core business logic implemented in Go, designed to facilitate targeted charitable contributions without financial transactions.
 
-## Local Setup Instructions (100% Working Method)
+## Local Setup Instructions
 
 The most reliable and recommended way to run the backend locally is using **Docker Compose**. The backend relies on multiple services (PostgreSQL, Redis, MinIO), and Docker automatically provisions all of them along with the Go application itself.
 
