@@ -317,3 +317,30 @@ func (r *Repository) UpdateUserOAuthInfoByEmail(ctx context.Context, info models
 	}
 	return u.ToDomain(), nil
 }
+
+// UpdateProfile updates the full_name and phone fields of a user if provided.
+func (r *Repository) UpdateProfile(ctx context.Context, id int, req models.UpdateProfileRequest) error {
+	const query = `
+		UPDATE users
+		SET
+			full_name = COALESCE($1, full_name),
+			phone = COALESCE($2, phone),
+			updated_at = NOW()
+		WHERE id = $3 AND deleted_at IS NULL
+	`
+
+	res, err := r.postgres.Exec(ctx, query, req.FullName, req.Phone, id)
+	if err != nil {
+		return fmt.Errorf("update user profile query: %w", err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected in update profile: %w", err)
+	}
+	if rowsAffected == 0 {
+		return myerrors.ErrNotFound
+	}
+
+	return nil
+}
