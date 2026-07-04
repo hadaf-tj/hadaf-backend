@@ -23,9 +23,8 @@ func NewUserHandler(service *services.Service) *UserHandler {
 	return &UserHandler{service: service}
 }
 
-// UpdateProfile обрабатывает PATCH /me запросы для изменения имени и телефона текущего пользователя.
+// UpdateProfile handles PATCH /me requests to update the current user's full name and phone number.
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
-	// 1. Извлекаем ID авторизованного пользователя из контекста Gin
 	userIDVal, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "ERR_UNAUTHORIZED"})
@@ -38,14 +37,12 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	// 2. Десериализуем и валидируем входящий JSON body
 	var req models.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ERR_INVALID_REQUEST_BODY"})
 		return
 	}
 
-	// 3. Передаем управление в сервис
 	if err := h.service.UpdateProfile(c.Request.Context(), userID, req); err != nil {
 		if errors.Is(err, myerrors.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "ERR_USER_NOT_FOUND"})
@@ -55,6 +52,5 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	// 4. Возвращаем успешный статус (200 OK)
 	c.Status(http.StatusOK)
 }
