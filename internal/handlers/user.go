@@ -25,7 +25,7 @@ func NewUserHandler(service *services.Service) *UserHandler {
 
 // UpdateProfile handles PATCH /me requests to update the current user's full name and phone number.
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
-	userIDVal, exists := c.Get("user_id")
+	userIDVal, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "ERR_UNAUTHORIZED"})
 		return

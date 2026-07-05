@@ -334,12 +334,8 @@ func (r *Repository) UpdateProfile(ctx context.Context, id int, req models.Updat
 		return fmt.Errorf("update user profile query: %w", err)
 	}
 
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("get rows affected in update profile: %w", err)
-	}
-	if rowsAffected == 0 {
-		return myerrors.ErrNotFound
+	if res.RowsAffected() == 0 {
+    	return myerrors.ErrNotFound 
 	}
 
 	return nil
