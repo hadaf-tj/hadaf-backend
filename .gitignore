@@ -39,3 +39,6 @@ go.work.sum
 main
 bcknd
 *.exe
+
+**/.vim
+tmp

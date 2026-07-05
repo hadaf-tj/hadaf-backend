@@ -4,7 +4,11 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -15,7 +19,30 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
+	"golang.org/x/oauth2"
 )
+
+func (h *Handler) resetTokenCookies(c *gin.Context) {
+	isProduction := h.cfg.App.Env == "production"
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
 
 // setTokenCookies writes httpOnly cookies for the access and refresh tokens.
 func (h *Handler) setTokenCookies(c *gin.Context, tokens *models.TokenResponse) {
@@ -39,6 +66,49 @@ func (h *Handler) setTokenCookies(c *gin.Context, tokens *models.TokenResponse) 
 		MaxAge:   refreshMaxAge,
 		HttpOnly: true,
 		Secure:   isProduction,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (h *Handler) setOAuthStateCookies(c *gin.Context, state *models.OAuthState) {
+	isProduction := h.cfg.App.Env == "production"
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    state.Value,
+		Path:     "/",
+		MaxAge:   300,
+		HttpOnly: true,
+		Secure:   isProduction,
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_return_to",
+		Value:    state.ReturnTo,
+		Path:     "/",
+		MaxAge:   300,
+		HttpOnly: true,
+		Secure:   h.cfg.App.Env == "production",
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (h *Handler) resetOAuthStateCookies(c *gin.Context) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.cfg.App.Env == "production",
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_return_to",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.cfg.App.Env == "production",
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -68,7 +138,7 @@ func (h *Handler) sendOTP(c *gin.Context) {
 
 	key := fmt.Sprintf("user:%s:send_otp", in.Receiver)
 	ok, err := h.limiter.Allow(ctx, key, h.cfg.Service.Security.SendOTPAttempts,
-		int(h.cfg.Service.Security.SendOTPBlockTime.Seconds()))
+		int(h.cfg.Service.Security.SendOTPBlockTime.Minutes()))
 	if err != nil {
 		logger.Warn().Err(err).Msg("limiter.Allow error")
 		h.handleError(c, myerrors.ErrGeneral)
@@ -149,24 +219,44 @@ func (h *Handler) confirmOTP(c *gin.Context) {
 	logger.Debug().Str("receiver", in.Receiver).Msg("OTP confirmed successfully")
 	h.setTokenCookies(c, response)
 	h.success(c, nil) // Tokens are set as httpOnly cookies; not returned in the body.
+	logger.Error().
+		Err(err).
+		Str("receiver", in.Receiver).
+		Msg("service.ConfirmOTPAndIssueToken error")
+
 }
 
 func (h *Handler) register(c *gin.Context) {
 	ctx := c.Request.Context()
-	log := zerolog.Ctx(ctx).With().Str("handler", "register").Logger()
+
+	log := zerolog.Ctx(ctx).
+		With().
+		Str("handler", "register").
+		Logger()
+
 	ctx = log.WithContext(ctx)
 	c.Request = c.Request.WithContext(ctx)
 
-	// Apply rate limiting only in non-local environments.
-	isLocal := os.Getenv("APP_ENV") == "development" || os.Getenv("APP_ENV") == "local"
+	isLocal := os.Getenv("APP_ENV") == "development" ||
+		os.Getenv("APP_ENV") == "local"
+
 	if !isLocal {
 		ipKey := fmt.Sprintf("register_ip:%s", c.ClientIP())
-		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 3600) // Max 3 registrations per hour per IP.
+		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 60) // Max 3 registrations per hour per IP.
+
 		if err != nil {
-			log.Error().Err(err).Msg("rate limiter error for register")
+			log.Error().
+				Err(err).
+				Msg("register rate limiter error")
 		}
+
 		if !allowed {
-			h.handleError(c, myerrors.NewTooManyRequestsErr("ERR_RATE_LIMIT_REGISTRATION"))
+			h.handleError(
+				c,
+				myerrors.NewTooManyRequestsErr(
+					"ERR_RATE_LIMIT_REGISTRATION",
+				),
+			)
 			return
 		}
 	}
@@ -181,35 +271,117 @@ func (h *Handler) register(c *gin.Context) {
 	}{}
 
 	if err := c.ShouldBindJSON(&in); err != nil {
-		h.handleError(c, myerrors.NewBadRequestErr("invalid input parameters"))
-		return
-	}
+		log.Warn().
+			Err(err).
+			Msg("invalid register body")
 
-	// Validate password — minimum 8 characters.
-	if len(in.Password) < 8 {
-		h.handleError(c, myerrors.NewBadRequestErr("password must be at least 8 characters"))
-		return
-	}
-
-	// Validate role — only allow safe values.
-	if in.Role != "volunteer" && in.Role != "employee" {
-		h.handleError(c, myerrors.NewBadRequestErr("invalid role: must be volunteer or employee"))
+		h.handleError(
+			c,
+			myerrors.NewBadRequestErr(
+				"invalid input parameters",
+			),
+		)
 		return
 	}
 
 	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
+	in.Phone = strings.TrimSpace(in.Phone)
+	in.FullName = strings.TrimSpace(in.FullName)
 
-	_, err := h.service.Register(ctx, in.Email, in.Phone, in.Password, in.FullName, in.Role, in.InstitutionID)
-	if err != nil {
-		h.handleError(c, err)
+	if len(in.Password) < 8 {
+		h.handleError(
+			c,
+			myerrors.NewBadRequestErr(
+				"password must be at least 8 characters",
+			),
+		)
 		return
 	}
 
-	log.Debug().Str("email", in.Email).Str("role", in.Role).Msg("user registered")
-	h.success(c, gin.H{
-		"message": "verification_required",
-		"email":   in.Email,
-	})
+	if in.Role != "volunteer" && in.Role != "employee" {
+		h.handleError(
+			c,
+			myerrors.NewBadRequestErr(
+				"invalid role: must be volunteer or employee",
+			),
+		)
+		return
+	}
+
+	exists, emailExists, phoneExists, err := h.service.UserExists(
+		ctx,
+		in.Email,
+		in.Phone,
+	)
+
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("checking existing user failed")
+
+		h.handleError(
+			c,
+			myerrors.ErrGeneral,
+		)
+		return
+	}
+	if exists {
+		switch {
+		case emailExists && phoneExists:
+			h.handleError(
+				c,
+				myerrors.NewConflictErr(
+					"email and phone already registered",
+				),
+			)
+		case emailExists:
+			h.handleError(
+				c,
+				myerrors.NewConflictErr(
+					"email already registered",
+				),
+			)
+		case phoneExists:
+			h.handleError(
+				c,
+				myerrors.NewConflictErr(
+					"phone number already registered",
+				),
+			)
+		}
+		return
+	}
+	_, err = h.service.Register(
+		ctx,
+		in.Email,
+		in.Phone,
+		in.Password,
+		in.FullName,
+		in.Role,
+		in.InstitutionID,
+	)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("email", in.Email).
+			Msg("registration failed")
+		h.handleError(
+			c,
+			err,
+		)
+		return
+	}
+	log.Info().
+		Str("email", in.Email).
+		Str("role", in.Role).
+		Msg("user registration started")
+	h.success(
+		c,
+		gin.H{
+			"message": "verification_required",
+			"email":   in.Email,
+		},
+	)
 }
 
 func (h *Handler) login(c *gin.Context) {
@@ -232,7 +404,7 @@ func (h *Handler) login(c *gin.Context) {
 	if !isLocal {
 		// Rate limit login — max 5 attempts per 15 minutes per email.
 		loginKey := fmt.Sprintf("login:%s", in.Email)
-		allowed, err := h.limiter.Allow(ctx, loginKey, 5, 900) // 900 seconds = 15 min.
+		allowed, err := h.limiter.Allow(ctx, loginKey, 5, 15) // 15 min.
 		if err != nil {
 			logger.Error().Err(err).Msg("rate limiter error")
 		}
@@ -264,7 +436,7 @@ func (h *Handler) refreshTokens(c *gin.Context) {
 	if !isLocal {
 		// Use IP for refresh limiting to prevent endpoint hammering.
 		ipKey := fmt.Sprintf("refresh_ip:%s", c.ClientIP())
-		allowed, err := h.limiter.Allow(ctx, ipKey, 10, 60) // Max 10 refreshes per minute per IP.
+		allowed, err := h.limiter.Allow(ctx, ipKey, 10, 1) // Max 10 refreshes per minute per IP.
 		if err != nil {
 			logger.Error().Err(err).Msg("rate limiter error for refresh")
 		}
@@ -308,26 +480,7 @@ func (h *Handler) logout(c *gin.Context) {
 		}
 	}
 
-	isProduction := h.cfg.App.Env == "production"
-
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "access_token",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   isProduction,
-		SameSite: http.SameSiteLaxMode,
-	})
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   isProduction,
-		SameSite: http.SameSiteLaxMode,
-	})
+	h.resetTokenCookies(c)
 
 	log.Debug().Msg("user logged out")
 	h.success(c, gin.H{"message": "logged out"})
@@ -351,4 +504,98 @@ func (h *Handler) getMe(c *gin.Context) {
 	user.Password = nil
 
 	h.success(c, user)
+}
+
+// oauth handles the start of server-side OAuth authentication, by redirecting
+// user to OAuth provider's consent page.
+func (h *Handler) oauth(cfg *oauth2.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if _, err := c.Cookie("refresh_token"); err != nil {
+			if !errors.Is(err, http.ErrNoCookie) {
+				h.handleError(c, err)
+				return
+			}
+			h.resetTokenCookies(c)
+		}
+
+		stateBytes := make([]byte, 64)
+		if _, err := io.ReadFull(rand.Reader, stateBytes); err != nil {
+			return
+		}
+
+		state := hex.EncodeToString(stateBytes)
+
+		h.setOAuthStateCookies(c, &models.OAuthState{
+			Value:    state,
+			ReturnTo: c.Query("return_to"),
+		})
+
+		c.Redirect(http.StatusTemporaryRedirect, cfg.AuthCodeURL(state))
+	}
+}
+
+// oauthCallback handles OAuth provider's callback after a successful user
+// consent.
+func (h *Handler) oauthCallback(oauthProvider OAuthProvider) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code, isValid := validateOAuthCallback(c)
+		if !isValid {
+			h.handleError(c, myerrors.NewForbiddenErr("invalid callback"))
+			return
+		}
+
+		tok, err := oauthProvider.OAuth2Config().Exchange(c, code)
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+
+		oauthUserInfo, err := oauthProvider.GetUser(c, tok)
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+
+		tokens, err := h.service.LoginOAuth(c, oauthUserInfo)
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+
+		h.setTokenCookies(c, tokens)
+
+		returnTo, err := c.Cookie("oauth_return_to")
+		if err != nil {
+			h.handleError(c, err)
+			return
+		}
+		h.resetOAuthStateCookies(c)
+
+		redirectURL := h.cfg.App.FrontendURL
+
+		if strings.HasPrefix(returnTo, "/") &&
+			!strings.HasPrefix(returnTo, "//") &&
+			!strings.Contains(returnTo, "\\") {
+			redirectURL += returnTo
+		}
+
+		c.Redirect(http.StatusFound, redirectURL)
+	}
+}
+
+// validateOAuthCallback checks returned oauth state against stored one from
+// cookies, and returns authorization code.
+func validateOAuthCallback(c *gin.Context) (code string, isValid bool) {
+	stateCookie, err := c.Cookie("oauth_state")
+	if err != nil {
+		return "", false
+	}
+
+	if state := c.Query("state"); state == "" || state != stateCookie {
+		return "", false
+	}
+
+	code = c.Query("code")
+
+	return code, code != ""
 }

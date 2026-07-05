@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"shb/internal/configs"
 	"shb/internal/handlers"
+	"shb/internal/oauth"
 	"shb/internal/repositories"
 	"shb/internal/server"
 	"shb/internal/services"
@@ -26,6 +27,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/pkg/errors"
 )
 
@@ -51,6 +55,21 @@ func NewApplication() *App {
 	})
 	if err != nil {
 		panic("failed to initialize logger: " + err.Error())
+	}
+	log.Info().
+		Str("smtp_user", cfg.SMTP.Username).
+		Bool("smtp_password_set", cfg.SMTP.Password != "").
+		Msg("smtp config loaded")
+
+	m, err := migrate.New("file://migration", cfg.Database.DSN)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize migrations")
+	} else {
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			log.Fatal().Err(err).Msg("failed to apply migrations")
+		} else {
+			log.Info().Msg("database migrations applied successfully")
+		}
 	}
 
 	postgresConn, err := pgx.NewPgxPool()
@@ -114,7 +133,9 @@ func NewApplication() *App {
 	// We pass emailAdapter here as it was required by Service constructor
 	service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage, emailAdapter)
 
-	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
+	googleOAuthProvider := oauth.NewGoogleProvider(&cfg.GoogleOAuth)
+
+	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg, googleOAuthProvider)
 
 	// 5. Server (Map config)
 	readTimeout, _ := time.ParseDuration(cfg.Server.ReadTimeout)

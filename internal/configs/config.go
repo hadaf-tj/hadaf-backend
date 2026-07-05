@@ -21,11 +21,24 @@ type Config struct {
 	Service  ServiceConfig
 	Redis    RedisConfig
 	Minio    MinioConfig
+	App         AppConfig
+	Security    SecurityConfig
+	Database    DatabaseConfig
+	Logger      LoggerConfig
+	SMS         SMSConfig
+	Telegram    TelegramConfig
+	SMTP        SMTPConfig
+	Server      ServerConfig
+	Service     ServiceConfig
+	Redis       RedisConfig
+	Minio       MinioConfig
+	GoogleOAuth OAuthProviderConfig
 }
 
 type AppConfig struct {
-	Port string
-	Env  string
+	FrontendURL string
+	Port        string
+	Env         string
 }
 
 type SecurityConfig struct {
@@ -100,6 +113,12 @@ type TelegramConfig struct {
 	ChatID  string
 }
 
+type OAuthProviderConfig struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+}
+
 // Helper to read ENV with a default value.
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
@@ -151,8 +170,9 @@ func InitConfigs() (*Config, error) {
 
 	return &Config{
 		App: AppConfig{
-			Port: getEnv("APP_PORT", ":8000"),
-			Env:  getEnv("APP_ENV", "prod"),
+			Port:        getEnv("APP_PORT", ":8000"),
+			Env:         getEnv("APP_ENV", "prod"),
+			FrontendURL: getEnv("APP_FRONTEND_URL", "http://localhost:3000"),
 		},
 		Security: security,
 		Database: DatabaseConfig{
@@ -203,6 +223,11 @@ func InitConfigs() (*Config, error) {
 			Token:   getEnv("TELEGRAM_ALERT_TOKEN", ""),
 			ChatID:  getEnv("TELEGRAM_ALERT_CHAT_ID", ""),
 			BaseURL: getEnv("TELEGRAM_BASE_URL", "https://api.telegram.org"),
+		},
+		GoogleOAuth: OAuthProviderConfig{
+			ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
+			ClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
+			RedirectURL:  getEnv("GOOGLE_REDIRECT_URL", ""),
 		},
 	}, nil
 }

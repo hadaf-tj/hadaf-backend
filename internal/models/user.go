@@ -3,7 +3,9 @@
 
 package models
 
-import "time"
+import (
+	"time"
+)
 
 // User roles
 const (
@@ -13,19 +15,22 @@ const (
 )
 
 type User struct {
-	ID            int        `json:"id"`
-	InstitutionID *int       `json:"institution_id"`
-	FullName      *string    `json:"full_name"`
-	Phone         *string    `json:"phone"`
-	Email         *string    `json:"email"`
-	Password      *string    `json:"password"`
-	Role          string     `json:"role"`
-	IsActive      bool       `json:"is_active"`
-	IsApproved    bool       `json:"is_approved"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     *time.Time `json:"updated_at"`
-	IsDeleted     bool       `json:"is_deleted"`
-	DeletedAt     *time.Time `json:"deleted_at"`
+	ID                int        `json:"id"`
+	OAuthProviderName *string    `json:"oauth_provider_name"`
+	OAuthUserID       *string    `json:"oauth_user_id"`
+	AvatarURL         *string    `json:"avatar_url"`
+	InstitutionID     *int       `json:"institution_id"`
+	FullName          *string    `json:"full_name"`
+	Phone             *string    `json:"phone"`
+	Email             *string    `json:"email"`
+	Password          *string    `json:"password"`
+	Role              string     `json:"role"`
+	IsActive          bool       `json:"is_active"`
+	IsApproved        bool       `json:"is_approved"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         *time.Time `json:"updated_at"`
+	IsDeleted         bool       `json:"is_deleted"`
+	DeletedAt         *time.Time `json:"deleted_at"`
 }
 
 type OTP struct {
