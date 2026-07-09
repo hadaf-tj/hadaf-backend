@@ -265,6 +265,7 @@ func (m *Middleware) LoggerMiddleware() gin.HandlerFunc {
 			Str("path", path).
 			Int("status", status).
 			Str("latency", latency.String()).
+			Str("request_id", requestID).
 			Msg("HTTP Request")
 	}
 }
