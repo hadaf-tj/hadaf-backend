@@ -98,8 +98,8 @@ type IRepository interface {
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
 
-	CreateBeneficiary(ctx context.Context, beneficiary *models.Beneficiary) error
-
+	// --- Beneficiary ---
+	CreateBeneficiary(ctx context.Context, b *models.Beneficiary) error
 	CountPendingThisMonth(ctx context.Context) (int, error)
 }
 
