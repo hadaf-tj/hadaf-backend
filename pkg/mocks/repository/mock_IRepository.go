@@ -73,6 +73,109 @@ func (_c *MockIRepository_ActivateUser_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+// CountPendingThisMonth provides a mock function with given fields: ctx
+func (_m *MockIRepository) CountPendingThisMonth(ctx context.Context) (int, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountPendingThisMonth")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (int, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockIRepository_CountPendingThisMonth_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountPendingThisMonth'
+type MockIRepository_CountPendingThisMonth_Call struct {
+	*mock.Call
+}
+
+// CountPendingThisMonth is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockIRepository_Expecter) CountPendingThisMonth(ctx interface{}) *MockIRepository_CountPendingThisMonth_Call {
+	return &MockIRepository_CountPendingThisMonth_Call{Call: _e.mock.On("CountPendingThisMonth", ctx)}
+}
+
+func (_c *MockIRepository_CountPendingThisMonth_Call) Run(run func(ctx context.Context)) *MockIRepository_CountPendingThisMonth_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockIRepository_CountPendingThisMonth_Call) Return(_a0 int, _a1 error) *MockIRepository_CountPendingThisMonth_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIRepository_CountPendingThisMonth_Call) RunAndReturn(run func(context.Context) (int, error)) *MockIRepository_CountPendingThisMonth_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateBeneficiary provides a mock function with given fields: ctx, beneficiary
+func (_m *MockIRepository) CreateBeneficiary(ctx context.Context, beneficiary *models.Beneficiary) error {
+	ret := _m.Called(ctx, beneficiary)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateBeneficiary")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *models.Beneficiary) error); ok {
+		r0 = rf(ctx, beneficiary)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockIRepository_CreateBeneficiary_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateBeneficiary'
+type MockIRepository_CreateBeneficiary_Call struct {
+	*mock.Call
+}
+
+// CreateBeneficiary is a helper method to define mock.On call
+//   - ctx context.Context
+//   - beneficiary *models.Beneficiary
+func (_e *MockIRepository_Expecter) CreateBeneficiary(ctx interface{}, beneficiary interface{}) *MockIRepository_CreateBeneficiary_Call {
+	return &MockIRepository_CreateBeneficiary_Call{Call: _e.mock.On("CreateBeneficiary", ctx, beneficiary)}
+}
+
+func (_c *MockIRepository_CreateBeneficiary_Call) Run(run func(ctx context.Context, beneficiary *models.Beneficiary)) *MockIRepository_CreateBeneficiary_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*models.Beneficiary))
+	})
+	return _c
+}
+
+func (_c *MockIRepository_CreateBeneficiary_Call) Return(_a0 error) *MockIRepository_CreateBeneficiary_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockIRepository_CreateBeneficiary_Call) RunAndReturn(run func(context.Context, *models.Beneficiary) error) *MockIRepository_CreateBeneficiary_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateBooking provides a mock function with given fields: ctx, booking
 func (_m *MockIRepository) CreateBooking(ctx context.Context, booking *models.Booking) (int, error) {
 	ret := _m.Called(ctx, booking)
