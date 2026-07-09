@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+﻿// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
 
 package configs
@@ -79,9 +79,9 @@ type ServerConfig struct {
 }
 
 type ServiceConfig struct {
-	Security SecurityConfig
+	Security               SecurityConfig
+	MaxPendingApplications int
 }
-
 type RedisConfig struct {
 	Host      string
 	Port      string
@@ -194,7 +194,8 @@ func InitConfigs() (*Config, error) {
 			ReadTimeout:  getEnv("APP_READ_TIMEOUT", "10s"),
 		},
 		Service: ServiceConfig{
-			Security: security,
+			Security:               security,
+			MaxPendingApplications: 10,
 		},
 		Redis: RedisConfig{
 			Host:      getEnv("REDIS_HOST", "localhost"),
