@@ -26,6 +26,7 @@ func testServiceConfig() *configs.ServiceConfig {
 			OTPDuration:     5 * time.Minute,
 			RefreshTokenTTL: 720 * time.Hour,
 		},
+		MaxPendingApplications: 10,
 	}
 }
 

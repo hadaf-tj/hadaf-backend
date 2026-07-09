@@ -97,6 +97,10 @@ type IRepository interface {
 	GetRefreshToken(ctx context.Context, tokenHash string) (*models.RefreshToken, error)
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
+
+	// --- Beneficiary ---
+	CreateBeneficiary(ctx context.Context, b *models.Beneficiary) error
+	CountPendingThisMonth(ctx context.Context) (int, error)
 }
 
 // Service is the application service layer that coordinates business logic
