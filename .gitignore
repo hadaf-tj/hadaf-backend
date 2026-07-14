@@ -42,3 +42,9 @@ bcknd
 
 **/.vim
 tmp
+# Python virtual environment
+.venv/
+venv/
+ENV/
+__pycache__/
+*.pyc
