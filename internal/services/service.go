@@ -92,6 +92,10 @@ type IRepository interface {
 
 	CreateNeedHistory(ctx context.Context, history *models.NeedsHistory) error
 
+	// --- Beneficiaries ---
+	CreateBeneficiary(ctx context.Context, beneficiary *models.Beneficiary) error
+	CountPendingThisMonth(ctx context.Context) (int, error)
+
 	// --- Token Methods ---
 	SaveRefreshToken(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error
 	GetRefreshToken(ctx context.Context, tokenHash string) (*models.RefreshToken, error)

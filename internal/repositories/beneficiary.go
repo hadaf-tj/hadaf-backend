@@ -203,3 +203,33 @@ func (r *BeneficiaryRepository) UpdateStatus(
 	r.log.Info("beneficiary status updated", "id", id, "status", status, "verified_by", verifiedBy)
 	return nil
 }
+
+func (r *BeneficiaryRepository) CountPendingThisMonth(
+	ctx context.Context,
+) (int, error) {
+
+	query := `
+		SELECT COUNT(*)
+		FROM beneficiaries
+		WHERE status = 'pending'
+		  AND created_at >= date_trunc('month', CURRENT_DATE)
+		  AND is_deleted = false
+	`
+
+	var count int
+
+	err := r.db.QueryRow(ctx, query).Scan(&count)
+	if err != nil {
+		r.log.Error(
+			"count pending beneficiaries failed",
+			"error",
+			err,
+		)
+		return 0, fmt.Errorf(
+			"count pending beneficiaries: %w",
+			err,
+		)
+	}
+
+	return count, nil
+}
