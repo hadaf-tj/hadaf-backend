@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"shb/internal/configs"
 	"shb/internal/handlers"
+	"shb/internal/oauth"
 	"shb/internal/repositories"
 	"shb/internal/server"
 	"shb/internal/services"
@@ -21,12 +22,16 @@ import (
 	"shb/pkg/logger"
 	"shb/pkg/metrics"
 	"shb/pkg/middlewares"
+	"shb/pkg/notifier"
 	"shb/pkg/rateLimiter/customLimiter"
 	"shb/pkg/tokens/jwtToken"
 	"shb/pkg/tracing"
 	"syscall"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/pkg/errors"
 )
 
@@ -86,6 +91,21 @@ func NewApplication() *App {
 			Float64("sample_ratio", cfg.Tracing.SampleRatio).
 			Msg("OpenTelemetry tracing enabled")
 	}
+	log.Info().
+		Str("smtp_user", cfg.SMTP.Username).
+		Bool("smtp_password_set", cfg.SMTP.Password != "").
+		Msg("smtp config loaded")
+
+	m, err := migrate.New("file://migration", cfg.Database.DSN)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize migrations")
+	} else {
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			log.Fatal().Err(err).Msg("failed to apply migrations")
+		} else {
+			log.Info().Msg("database migrations applied successfully")
+		}
+	}
 
 	postgresConn, err := pgx.NewPgxPool()
 	if err != nil {
@@ -121,6 +141,13 @@ func NewApplication() *App {
 	// 4. Initialize SMTP Email Adapter
 	emailAdapter := smtpEmail.NewSMTPEmail(&cfg.SMTP)
 
+	log.Info().
+		Bool(
+			"telegram_alerts_enabled",
+			cfg.Telegram.Token != "" && cfg.Telegram.ChatID != "",
+		).
+		Msg("telegram notifier initialized")
+
 	token := jwtToken.NewJwtTokenIssuer(
 		cfg.Security.JWTSecretKey,
 		cfg.Security.AccessTokenTTL,
@@ -128,7 +155,12 @@ func NewApplication() *App {
 	)
 
 	// 4. Middleware (Pass secret)
-	middleware := middlewares.NewMiddleware(cfg.Security.JWTSecretKey)
+	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram)
+
+	middleware := middlewares.NewMiddleware(
+		cfg.Security.JWTSecretKey,
+		telegramNotifier,
+	)
 
 	repository := repositories.NewRepository(postgresConn, &log.Logger)
 
@@ -147,6 +179,9 @@ func NewApplication() *App {
 		instrumentedSMS, token, instrumentedStorage, instrumentedEmail)
 
 	handler := handlers.NewHandler(service, limiter, middleware, appMetrics, &log.Logger, cfg)
+	googleOAuthProvider := oauth.NewGoogleProvider(&cfg.GoogleOAuth)
+
+	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg, googleOAuthProvider)
 
 	// 5. Server (Map config)
 	readTimeout, _ := time.ParseDuration(cfg.Server.ReadTimeout)

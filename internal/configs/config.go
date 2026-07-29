@@ -24,11 +24,24 @@ type Config struct {
 	Redis    RedisConfig
 	Minio    MinioConfig
 	Tracing  TracingConfig
+	App         AppConfig
+	Security    SecurityConfig
+	Database    DatabaseConfig
+	Logger      LoggerConfig
+	SMS         SMSConfig
+	Telegram    TelegramConfig
+	SMTP        SMTPConfig
+	Server      ServerConfig
+	Service     ServiceConfig
+	Redis       RedisConfig
+	Minio       MinioConfig
+	GoogleOAuth OAuthProviderConfig
 }
 
 type AppConfig struct {
-	Port string
-	Env  string
+	FrontendURL string
+	Port        string
+	Env         string
 }
 
 // IsProduction reports whether the app runs in the production environment.
@@ -119,6 +132,16 @@ type TracingConfig struct {
 	ServiceName    string  // resource attribute service.name
 	ServiceVersion string  // resource attribute service.version
 	SampleRatio    float64 // head sampling probability in [0,1]
+type TelegramConfig struct {
+	BaseURL string
+	Token   string
+	ChatID  string
+}
+
+type OAuthProviderConfig struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
 }
 
 // Helper to read ENV with a default value.
@@ -208,6 +231,9 @@ func InitConfigs() (*Config, error) {
 		App: AppConfig{
 			Port: getEnv("APP_PORT", ":8000"),
 			Env:  appEnv,
+			Port:        getEnv("APP_PORT", ":8000"),
+			Env:         getEnv("APP_ENV", "prod"),
+			FrontendURL: getEnv("APP_FRONTEND_URL", "http://localhost:3000"),
 		},
 		Security: security,
 		Database: DatabaseConfig{
@@ -261,6 +287,15 @@ func InitConfigs() (*Config, error) {
 			ServiceName:    getEnv("OTEL_SERVICE_NAME", "shb"),
 			ServiceVersion: getEnv("OTEL_SERVICE_VERSION", "dev"),
 			SampleRatio:    getEnvFloat("OTEL_TRACES_SAMPLER_ARG", 1.0),
+		Telegram: TelegramConfig{
+			Token:   getEnv("TELEGRAM_ALERT_TOKEN", ""),
+			ChatID:  getEnv("TELEGRAM_ALERT_CHAT_ID", ""),
+			BaseURL: getEnv("TELEGRAM_BASE_URL", "https://api.telegram.org"),
+		},
+		GoogleOAuth: OAuthProviderConfig{
+			ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
+			ClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
+			RedirectURL:  getEnv("GOOGLE_REDIRECT_URL", ""),
 		},
 	}, nil
 }

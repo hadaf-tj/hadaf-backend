@@ -40,3 +40,6 @@ main
 bcknd
 *.exe
 CLAUDE.md
+
+**/.vim
+tmp

@@ -35,6 +35,10 @@ type IRepository interface {
 	UpdateUserProfile(ctx context.Context, id int, fullName, phone *string) (*models.User, error)
 	// ActivateUser marks the user account as active.
 	ActivateUser(ctx context.Context, id int) error
+	// GetUserByOAuthInfo return the user that matches the given OAuth user id and provider name.
+	GetUserByOAuthInfo(ctx context.Context, oauthUserID, oauthProviderName string) (*models.User, error)
+	// UpdateUserOAuthInfoByEmail updates user's oauth provider name and oauth user id by email from info
+	UpdateUserOAuthInfoByEmail(ctx context.Context, info models.OAuthUserInfo) (*models.User, error)
 
 	// Ping verifies connectivity to the database (used by readiness checks).
 	Ping(ctx context.Context) error

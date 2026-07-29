@@ -25,6 +25,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/oauth2"
 )
 
 // Limiter defines the rate-limiting contract used by the handler layer.
@@ -44,6 +45,10 @@ type IService interface {
 
 	// HealthCheck verifies downstream dependencies for the readiness probe.
 	HealthCheck(ctx context.Context) error
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	CreateUser(ctx context.Context, user *models.User) error
+	LoginOAuth(ctx context.Context, oauthUserInfo models.OAuthUserInfo) (*models.TokenResponse, error)
+	UpdateUserOAuthInfoByEmail(ctx context.Context, info models.OAuthUserInfo) (*models.User, error)
 
 	GetAllInstitutions(ctx context.Context, q models.InstitutionListQuery) (*models.InstitutionPage, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
@@ -63,6 +68,7 @@ type IService interface {
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
 	CancelMyBooking(ctx context.Context, bookingID int, userID int) error
 	UpdateMyBooking(ctx context.Context, bookingID int, userID int, qty float64) error
+	UserExists(ctx context.Context, email string, phone string) (bool, bool, bool, error)
 
 	// --- Event Methods ---
 	CreateEvent(ctx context.Context, e *models.Event) (int, error)
@@ -94,6 +100,13 @@ type IService interface {
 	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
 }
 
+type OAuthProvider interface {
+	ProviderName() string
+	CallbackPath() string
+	OAuth2Config() *oauth2.Config
+	GetUser(ctx context.Context, tok *oauth2.Token) (models.OAuthUserInfo, error)
+}
+
 // Handler holds all dependencies for the HTTP handler layer.
 type Handler struct {
 	service    IService
@@ -113,6 +126,30 @@ func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middl
 		metrics:    m,
 		logger:     logger,
 		cfg:        cfg,
+	service        IService
+	limiter        Limiter
+	middleware     *middlewares.Middleware
+	logger         *zerolog.Logger
+	cfg            *configs.Config
+	oauthProviders []OAuthProvider
+}
+
+// NewHandler constructs a Handler with all required dependencies injected.
+func NewHandler(
+	service IService,
+	limiter Limiter,
+	middleware *middlewares.Middleware,
+	logger *zerolog.Logger,
+	cfg *configs.Config,
+	oauthProviders ...OAuthProvider,
+) *Handler {
+	return &Handler{
+		service:        service,
+		limiter:        limiter,
+		middleware:     middleware,
+		logger:         logger,
+		cfg:            cfg,
+		oauthProviders: oauthProviders,
 	}
 }
 
@@ -139,6 +176,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		router.Use(h.metrics.Middleware())
 		router.GET(metrics.Endpoint(), h.metrics.Handler())
 	}
+	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.AlertMiddleware())
 	router.NoRoute(h.noRoute)
 
 	router.GET("/ping", h.ping)
@@ -152,6 +190,29 @@ func (h *Handler) InitRoutes() *gin.Engine {
 				ginSwagger.URL("/api/v1/docs/swagger.yaml"),
 			))
 			v1.Static("/docs", "./docs")
+		}
+
+		v1.GET("/telegram/panic", func(c *gin.Context) {
+			panic("telegram test")
+		})
+		v1.GET("/telegram/5xx", func(c *gin.Context) {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"error": "test 500",
+				},
+			)
+		})
+		oauth := v1.Group("/oauth")
+		{
+			for _, oauthProvider := range h.oauthProviders {
+
+				oauthPath := "/" + oauthProvider.ProviderName()
+				oauthCallbackPath := oauthPath + "/" + oauthProvider.CallbackPath()
+
+				oauth.GET(oauthPath, h.oauth(oauthProvider.OAuth2Config()))
+				oauth.GET(oauthCallbackPath, h.oauthCallback(oauthProvider))
+			}
 		}
 
 		v1.POST("/send_otp", h.sendOTP)

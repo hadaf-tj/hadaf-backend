@@ -13,19 +13,22 @@ func (u *dbUser) ToDomain() *models.User {
 	}
 
 	return &models.User{
-		ID:            u.ID,
-		InstitutionID: u.InstitutionID,
-		FullName:      u.FullName,
-		Phone:         u.Phone,
-		Email:         u.Email,
-		Password:      u.Password,
-		Role:          u.Role,
-		IsActive:      u.IsActive,
-		IsApproved:    u.IsApproved,
-		CreatedAt:     u.CreatedAt,
-		UpdatedAt:     u.UpdatedAt,
-		IsDeleted:     u.IsDeleted,
-		DeletedAt:     u.DeletedAt,
+		ID:                u.ID,
+		OAuthProviderName: u.OAuthProviderName,
+		OAuthUserID:       u.OAuthUserID,
+		AvatarURL:         u.AvatarURL,
+		InstitutionID:     u.InstitutionID,
+		FullName:          u.FullName,
+		Phone:             u.Phone,
+		Email:             u.Email,
+		Password:          u.Password,
+		Role:              u.Role,
+		IsActive:          u.IsActive,
+		IsApproved:        u.IsApproved,
+		CreatedAt:         u.CreatedAt,
+		UpdatedAt:         u.UpdatedAt,
+		IsDeleted:         u.IsDeleted,
+		DeletedAt:         u.DeletedAt,
 	}
 }
 
@@ -91,7 +94,9 @@ func (i *dbInstitution) ToDomain() *models.Institution {
 		UpdatedAt:     i.UpdatedAt,
 		IsDeleted:     i.IsDeleted,
 		DeletedAt:     i.DeletedAt,
-		WardsCount:    i.WardsCount,
+		WardsCount:       i.WardsCount,
+		ProhibitedItems:  i.ProhibitedItems,
+		RecommendedItems: i.RecommendedItems,
 	}
 }
 

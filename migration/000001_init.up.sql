@@ -73,7 +73,6 @@ CREATE TABLE IF NOT EXISTS needs_history (
     deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
-
 -- Таблица OTP (Одноразовые пароли для входа/регистрации)
 CREATE TABLE IF NOT EXISTS otp (
     id SERIAL PRIMARY KEY,
@@ -166,6 +165,7 @@ CREATE INDEX IF NOT EXISTS idx_events_event_date ON events(event_date);
 CREATE INDEX IF NOT EXISTS idx_events_institution_id ON events(institution_id);
 CREATE INDEX IF NOT EXISTS idx_events_creator_id ON events(creator_id);
 CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);
+
 -- Таблица для хранения и ротации refresh-токенов
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id           SERIAL PRIMARY KEY,
@@ -177,5 +177,3 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
-
-
