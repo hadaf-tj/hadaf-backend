@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package application
 
 import (
@@ -7,6 +10,7 @@ import (
 	"os/signal"
 	"shb/internal/configs"
 	"shb/internal/handlers"
+	"shb/internal/oauth"
 	"shb/internal/repositories"
 	"shb/internal/server"
 	"shb/internal/services"
@@ -17,11 +21,15 @@ import (
 	"shb/pkg/external/sms/smsProvider"
 	"shb/pkg/logger"
 	"shb/pkg/middlewares"
+	"shb/pkg/notifier"
 	"shb/pkg/rateLimiter/customLimiter"
 	"shb/pkg/tokens/jwtToken"
 	"syscall"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/pkg/errors"
 )
 
@@ -40,10 +48,28 @@ func NewApplication() *App {
 	// 2. Map Internal Config to Pkg Config for Logger
 	// (Assuming pkgConfigs.Logger has a 'Level' field)
 	log, err := logger.NewLogger(logger.Config{
-		Level: cfg.Logger.Level,
+		Level:         cfg.Logger.Level,
+		Env:           cfg.App.Env,
+		LogPath:       cfg.Logger.LogPath,
+		IncludeCaller: cfg.Logger.IncludeCaller == "true",
 	})
 	if err != nil {
 		panic("failed to initialize logger: " + err.Error())
+	}
+	log.Info().
+		Str("smtp_user", cfg.SMTP.Username).
+		Bool("smtp_password_set", cfg.SMTP.Password != "").
+		Msg("smtp config loaded")
+
+	m, err := migrate.New("file://migration", cfg.Database.DSN)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize migrations")
+	} else {
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			log.Fatal().Err(err).Msg("failed to apply migrations")
+		} else {
+			log.Info().Msg("database migrations applied successfully")
+		}
 	}
 
 	postgresConn, err := pgx.NewPgxPool()
@@ -69,7 +95,7 @@ func NewApplication() *App {
 
 	limiter := customLimiter.NewRateLimiter(redis)
 
-	// 3. SMS (Мапим конфиг)
+	// 3. SMS (Map config)
 	sms := smsProvider.NewSMSProvider(smsProvider.SMSConfig{
 		APIKey:     cfg.SMS.APIKey,
 		SenderName: cfg.SMS.SenderName,
@@ -80,14 +106,26 @@ func NewApplication() *App {
 	// 4. Initialize SMTP Email Adapter
 	emailAdapter := smtpEmail.NewSMTPEmail(&cfg.SMTP)
 
+	log.Info().
+		Bool(
+			"telegram_alerts_enabled",
+			cfg.Telegram.Token != "" && cfg.Telegram.ChatID != "",
+		).
+		Msg("telegram notifier initialized")
+
 	token := jwtToken.NewJwtTokenIssuer(
 		cfg.Security.JWTSecretKey,
 		cfg.Security.AccessTokenTTL,
 		cfg.Security.RefreshTokenTTL,
 	)
 
-	// 4. Middleware (Передаем секрет)
-	middleware := middlewares.NewMiddleware(cfg.Security.JWTSecretKey)
+	// 4. Middleware (Pass secret)
+	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram)
+
+	middleware := middlewares.NewMiddleware(
+		cfg.Security.JWTSecretKey,
+		telegramNotifier,
+	)
 
 	repository := repositories.NewRepository(postgresConn, &log.Logger)
 
@@ -95,9 +133,11 @@ func NewApplication() *App {
 	// We pass emailAdapter here as it was required by Service constructor
 	service := services.NewService(&cfg.Service, &log.Logger, repository, redis, sms, token, fileStorage, emailAdapter)
 
-	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg)
+	googleOAuthProvider := oauth.NewGoogleProvider(&cfg.GoogleOAuth)
 
-	// 5. Server (Мапим конфиг)
+	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg, googleOAuthProvider)
+
+	// 5. Server (Map config)
 	readTimeout, _ := time.ParseDuration(cfg.Server.ReadTimeout)
 	writeTimeout, _ := time.ParseDuration(cfg.Server.WriteTimeout)
 
@@ -105,7 +145,7 @@ func NewApplication() *App {
 		Port:         cfg.Server.Port,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
-	}, handler.InitRoutes()) // Внимание: NewServer в pkg/server теперь принимает handler http.Handler
+	}, handler.InitRoutes()) // Note: NewServer in pkg/server now accepts an http.Handler
 
 	return &App{
 		config: cfg,

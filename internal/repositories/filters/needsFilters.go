@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package filters
 
 import (
@@ -23,10 +26,10 @@ func GetNeedsByInstitution(filter NeedsFilter, instituteId int) (string, []inter
 	filterQuery := ""
 	var args []interface{}
 
-	// Индекс параметра чтобы не было путаницы с последовательностью аргументов
+	// Parameter index to avoid confusion with argument sequence.
 	idx := 1
 
-	// is_deleted — всегда первый
+	// is_deleted is always the first parameter.
 	filterQuery += fmt.Sprintf(" WHERE n.is_deleted = $%d", idx)
 	args = append(args, filter.IsDeleted)
 	idx++
@@ -85,7 +88,7 @@ func GetNeedsByInstitution(filter NeedsFilter, instituteId int) (string, []inter
 		idx++
 	}
 	if filter.CreatedAtTo != nil {
-		// Добавляем 24 часа, чтобы включить весь конец дня
+		// Add 24 hours to include the entire end of the day.
 		to := filter.CreatedAtTo.Add(24 * time.Hour)
 		filterQuery += fmt.Sprintf(" AND n.created_at < $%d", idx)
 		args = append(args, to)
@@ -94,7 +97,7 @@ func GetNeedsByInstitution(filter NeedsFilter, instituteId int) (string, []inter
 
 	
 
-	// ORDER BY — ТОЛЬКО whitelist
+	// ORDER BY is strictly whitelisted.
 	switch filter.OrderBy {
 	case "date_asc":
 		filterQuery += " ORDER BY n.created_at ASC"

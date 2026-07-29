@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package configs
 
 import (
@@ -7,21 +10,24 @@ import (
 )
 
 type Config struct {
-	App      AppConfig
-	Security SecurityConfig
-	Database DatabaseConfig
-	Logger   LoggerConfig
-	SMS      SMSConfig
-	SMTP     SMTPConfig
-	Server   ServerConfig
-	Service  ServiceConfig
-	Redis    RedisConfig
-	Minio    MinioConfig
+	App         AppConfig
+	Security    SecurityConfig
+	Database    DatabaseConfig
+	Logger      LoggerConfig
+	SMS         SMSConfig
+	Telegram    TelegramConfig
+	SMTP        SMTPConfig
+	Server      ServerConfig
+	Service     ServiceConfig
+	Redis       RedisConfig
+	Minio       MinioConfig
+	GoogleOAuth OAuthProviderConfig
 }
 
 type AppConfig struct {
-	Port string
-	Env  string
+	FrontendURL string
+	Port        string
+	Env         string
 }
 
 type SecurityConfig struct {
@@ -90,7 +96,19 @@ type MinioConfig struct {
 	SecretKey string
 }
 
-// Helper для чтения ENV с дефолтным значением
+type TelegramConfig struct {
+	BaseURL string
+	Token   string
+	ChatID  string
+}
+
+type OAuthProviderConfig struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+}
+
+// Helper to read ENV with a default value.
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
@@ -109,47 +127,50 @@ func requireEnv(key string) string {
 
 // InitConfigs loads the configuration
 func InitConfigs() (*Config, error) {
-	// Читаем переменные для PostgreSQL
+	// Read PostgreSQL variables
 	pgUser := getEnv("POSTGRES_USER", "postgres")
 	pgPass := requireEnv("POSTGRES_PASSWORD")
-	pgHost := getEnv("POSTGRES_HOST", "localhost") // В Docker будет "postgres"
+	pgHost := getEnv("POSTGRES_HOST", "localhost") // "postgres" in Docker
 	pgPort := getEnv("POSTGRES_PORT", "5432")
 	pgDB := getEnv("POSTGRES_DB", "shb")
 
-	// Формируем DSN строку
+	// Build DSN string
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		pgUser, pgPass, pgHost, pgPort, pgDB)
 
-	// Читаем настройки Redis (важно для pkg/db/cache/redisClient)
-	// Примечание: Если redisClient сам читает REDIS_HOST через os.Getenv, это сработает.
-	// Если он берет конфиг отсюда - мы пока не передаем это явно в структуру,
-	// но наличие переменных в ENV (через docker-compose) должно спасти ситуацию.
+	// Read Redis configuration
+	// Note: If redisClient reads REDIS_HOST via os.Getenv directly, it will work.
+	// If it takes the config from here, we aren't passing it explicitly into the struct yet,
+	// but the presence of variables in ENV (via docker-compose) will suffice.
+
+	security := SecurityConfig{
+		JWTSecretKey:            requireEnv("JWT_SECRET_KEY"),
+		AccessTokenTTL:          15 * time.Minute,
+		AccessTokenSecret:       requireEnv("ACCESS_TOKEN_SECRET"),
+		RefreshTokenTTL:         720 * time.Hour,
+		RefreshTokenSecret:      requireEnv("REFRESH_TOKEN_SECRET"),
+		OTPLength:               6,
+		OTPDuration:             5 * time.Minute,
+		OTPMaxAttempts:          3,
+		OTPMaxAttemptsBlockTime: 30 * time.Minute,
+		SendOTPAttempts:         3,
+		SendOTPBlockTime:        1 * time.Minute,
+	}
 
 	return &Config{
 		App: AppConfig{
-			Port: getEnv("APP_PORT", ":8000"),
-			Env:  getEnv("APP_ENV", "local"),
+			Port:        getEnv("APP_PORT", ":8000"),
+			Env:         getEnv("APP_ENV", "prod"),
+			FrontendURL: getEnv("APP_FRONTEND_URL", "http://localhost:3000"),
 		},
-		Security: SecurityConfig{
-			JWTSecretKey:            requireEnv("JWT_SECRET_KEY"),
-			AccessTokenTTL:          15 * time.Minute,
-			AccessTokenSecret:       requireEnv("ACCESS_TOKEN_SECRET"),
-			RefreshTokenTTL:         720 * time.Hour,
-			RefreshTokenSecret:      requireEnv("REFRESH_TOKEN_SECRET"),
-			OTPLength:               6,
-			OTPDuration:             5 * time.Minute,
-			OTPMaxAttempts:          3,
-			OTPMaxAttemptsBlockTime: 30 * time.Minute,
-			SendOTPAttempts:         3,
-			SendOTPBlockTime:        1 * time.Minute,
-		},
+		Security: security,
 		Database: DatabaseConfig{
-			DSN: dsn, // Теперь DSN формируется динамически!
+			DSN: dsn,
 		},
 		Logger: LoggerConfig{
 			Level:         getEnv("LOG_LEVEL", "debug"),
 			LogPath:       getEnv("LOG_PATH", ""),
-			IncludeCaller: getEnv("INCLUDE_CALLER", ""),
+			IncludeCaller: getEnv("INCLUDE_CALLER", "false"),
 		},
 		SMS: SMSConfig{
 			APIKey:     getEnv("SMS_API_KEY", "mock"),
@@ -173,15 +194,7 @@ func InitConfigs() (*Config, error) {
 			ReadTimeout:  getEnv("APP_READ_TIMEOUT", "10s"),
 		},
 		Service: ServiceConfig{
-			Security: SecurityConfig{
-				JWTSecretKey:            requireEnv("JWT_SECRET_KEY"),
-				OTPLength:               6,
-				OTPDuration:             5 * time.Minute,
-				OTPMaxAttempts:          3,
-				OTPMaxAttemptsBlockTime: 30 * time.Minute,
-				SendOTPAttempts:         3,
-				SendOTPBlockTime:        1 * time.Minute,
-			},
+			Security: security,
 		},
 		Redis: RedisConfig{
 			Host:      getEnv("REDIS_HOST", "localhost"),
@@ -194,6 +207,16 @@ func InitConfigs() (*Config, error) {
 			Endpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
 			AccessKey: getEnv("MINIO_ACCESS_KEY", "minio"),
 			SecretKey: getEnv("MINIO_SECRET_KEY", "minio"),
+		},
+		Telegram: TelegramConfig{
+			Token:   getEnv("TELEGRAM_ALERT_TOKEN", ""),
+			ChatID:  getEnv("TELEGRAM_ALERT_CHAT_ID", ""),
+			BaseURL: getEnv("TELEGRAM_BASE_URL", "https://api.telegram.org"),
+		},
+		GoogleOAuth: OAuthProviderConfig{
+			ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
+			ClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
+			RedirectURL:  getEnv("GOOGLE_REDIRECT_URL", ""),
 		},
 	}, nil
 }

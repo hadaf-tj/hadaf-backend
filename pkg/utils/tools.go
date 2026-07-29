@@ -1,8 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package utils
 
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"regexp"
 	"shb/pkg/constants"
@@ -34,14 +39,14 @@ func IsValidPhoneNumberByCountry(ctx context.Context, phone string) bool {
 		return isValidTajikPhone(phone)
 	case "RU":
 		return isValidRussianPhone(phone)
-	// можно добавить другие страны
+	// Additional country codes can be added here.
 	default:
 		return false
 	}
 }
 
 func isValidTajikPhone(phone string) bool {
-	// Формат: 992 + 9 цифр = 12 символов
+	// Expected format: 992 + 9 digits = 12 characters total.
 	if len(phone) != 12 || !strings.HasPrefix(phone, "992") {
 		return false
 	}
@@ -49,7 +54,7 @@ func isValidTajikPhone(phone string) bool {
 }
 
 func isValidRussianPhone(phone string) bool {
-	// Формат: 7 + 10 цифр = 11 символов
+	// Expected format: 7 + 10 digits = 11 characters total.
 	if strings.HasPrefix(phone, "8") && len(phone) == 11 {
 		phone = "7" + phone[1:]
 	}
@@ -63,4 +68,9 @@ var digitsRegexp = regexp.MustCompile(`^\d+$`)
 
 func isDigits(s string) bool {
 	return digitsRegexp.MatchString(s)
+}
+
+func HashToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
 }

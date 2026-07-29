@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package fs
 
 import (
@@ -11,7 +14,7 @@ var (
 	ErrFileNotFound = errors.New("ErrFileNotFound")
 )
 
-// FileInfo содержит метаданные файла
+// FileInfo holds file metadata.
 type FileInfo struct {
 	Name        string
 	ContentType string
@@ -26,13 +29,13 @@ func (f *FileInfo) Extension() string {
 	return ""
 }
 
-// FileData содержит данные файла и его метаданные
+// FileData bundles a file's content reader with its metadata.
 type FileData struct {
 	io.Reader
 	FileInfo
 }
 
-// WriteResult результат записи файла
+// WriteResult holds the outcome of a file write operation.
 type WriteResult struct {
 	// URL is a public URL to the file. File can't be accessed publicly if no URL returned
 	URL string
@@ -52,7 +55,7 @@ type FileWriter interface {
 	WriteFile(ctx context.Context, path string, data *FileData) (*WriteResult, error)
 }
 
-// Storage объединяет чтение и запись
+// Storage combines the FileReader and FileWriter interfaces.
 type Storage interface {
 	FileReader
 	FileWriter

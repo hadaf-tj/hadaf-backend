@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package myerrors
 
 import (
@@ -62,6 +65,15 @@ func (e TooManyRequestsErr) Error() string {
 	return fmt.Sprintf("message %s: %v", e.Message, e.err)
 }
 
+type ConflictErr struct {
+	Message string `json:"message"`
+	err     error
+}
+
+func (e ConflictErr) Error() string {
+	return fmt.Sprintf("message %s: %v", e.Message, e.err)
+}
+
 func NewBadRequestErr(message string) error {
 	return BadRequestErr{Message: message}
 }
@@ -80,4 +92,8 @@ func NewUnauthorizedErr(message string) error {
 
 func NewTooManyRequestsErr(message string) error {
 	return TooManyRequestsErr{Message: message}
+}
+
+func NewConflictErr(message string) error {
+	return ConflictErr{Message: message}
 }

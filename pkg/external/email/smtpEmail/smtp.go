@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package smtpEmail
 
 import (
@@ -34,7 +37,7 @@ func (s *SMTPEmail) SendEmail(ctx context.Context, to, subject, body string) err
 		from = fmt.Sprintf("%s <%s>", s.cfg.FromName, s.cfg.FromEmail)
 	}
 
-	msg := []byte(fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s\r\n", from, to, subject, body))
+	msg := []byte(fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\n\r\n%s\r\n", from, to, subject, body))
 
 	err = smtp.SendMail(addr, auth, s.cfg.FromEmail, []string{to}, msg)
 	if err != nil {

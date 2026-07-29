@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package customLimiter
 
 import (
@@ -23,7 +26,7 @@ func (r *RateLimiter) Allow(ctx context.Context, key string, limit int, ttlMinut
 	}
 
 	if val == "" {
-		// Первый запрос — установим счётчик и TTL
+		// First request — initialise the counter and set the TTL.
 		err = r.cache.Set(ctx, key, 1, time.Duration(ttlMinutes)*time.Minute)
 		if err != nil {
 			return false, err

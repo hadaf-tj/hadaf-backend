@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package repositories
 
 import "time"
@@ -6,18 +9,22 @@ import "time"
 USERS
 */
 type dbUser struct {
-	ID            int        `db:"id"`
-	InstitutionID *int       `db:"institution_id"`
-	FullName      *string    `db:"full_name"`
-	Phone         *string    `db:"phone"`
-	Email         *string    `db:"email"`
-	Password      *string    `db:"password"`
-	Role          string     `db:"role"`
-	IsActive      bool       `db:"is_active"`
-	CreatedAt     time.Time  `db:"created_at"`
-	UpdatedAt     *time.Time `db:"updated_at"`
-	IsDeleted     bool       `db:"is_deleted"`
-	DeletedAt     *time.Time `db:"deleted_at"`
+	ID                int        `db:"id"`
+	OAuthProviderName *string    `db:"oauth_provider_name"`
+	OAuthUserID       *string    `db:"oauth_user_id"`
+	AvatarURL         *string    `db:"avatar_url"`
+	InstitutionID     *int       `db:"institution_id"`
+	FullName          *string    `db:"full_name"`
+	Phone             *string    `db:"phone"`
+	Email             *string    `db:"email"`
+	Password          *string    `db:"password"`
+	Role              string     `db:"role"`
+	IsActive          bool       `db:"is_active"`
+	IsApproved        bool       `db:"is_approved"`
+	CreatedAt         time.Time  `db:"created_at"`
+	UpdatedAt         *time.Time `db:"updated_at"`
+	IsDeleted         bool       `db:"is_deleted"`
+	DeletedAt         *time.Time `db:"deleted_at"`
 }
 
 /*
@@ -57,6 +64,9 @@ type dbInstitution struct {
 	UpdatedAt     *time.Time `db:"updated_at"`
 	IsDeleted     bool       `db:"is_deleted"`
 	DeletedAt     *time.Time `db:"deleted_at"`
+	WardsCount       int        `db:"wards_count"`
+	ProhibitedItems  *string    `db:"prohibited_items"`
+	RecommendedItems *string    `db:"recommended_items"`
 }
 
 /*

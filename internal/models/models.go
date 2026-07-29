@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package models
 
 import (
@@ -15,8 +18,23 @@ type TokenResponse struct {
 }
 
 type CustomClaims struct {
-	UserID int    `json:"user_id"`
-	Role   string `json:"role"`
+	UserID     int    `json:"user_id"`
+	Role       string `json:"role"`
+	IsApproved bool   `json:"is_approved"`
 
 	jwt.RegisteredClaims
+}
+
+type OAuthUserInfo struct {
+	ID                string
+	Username          string
+	Email             string
+	EmailVerified     bool
+	OAuthProviderName string
+	AvatarURL         *string
+}
+
+type OAuthState struct {
+	Value    string
+	ReturnTo string
 }

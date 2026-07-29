@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package repositories
 
 import (
@@ -5,13 +8,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
+
 	"shb/internal/models"
 	"shb/pkg/myerrors"
-	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
+// SaveOTP persists a new OTP record to the database and returns its ID.
 func (r *Repository) SaveOTP(ctx context.Context, o *models.OTP) (int, error) {
 	const query = `
     INSERT INTO otp (receiver, method, otp_code, sent_at, expires_at, attempt, is_verified)
@@ -36,9 +41,9 @@ func (r *Repository) SaveOTP(ctx context.Context, o *models.OTP) (int, error) {
 	return id, nil
 }
 
+// GetOTP retrieves the latest active, unverified OTP record for the given
+// receiver. Returns myerrors.ErrNotFound if no valid record exists.
 func (r *Repository) GetOTP(ctx context.Context, receiver string) (*models.OTP, error) {
-	// Мы убедились по логам, что UTC время работает корректно.
-	// Возвращаем проверку: expires_at > $2
 	const query = `
     SELECT id, attempt, receiver, method, otp_code, is_verified, sent_at, expires_at, updated_at, is_deleted, deleted_at
     FROM otp
@@ -49,10 +54,9 @@ func (r *Repository) GetOTP(ctx context.Context, receiver string) (*models.OTP, 
     LIMIT 1;
 `
 	var otpDB dbOtp
-	// Берем текущее время в UTC, чтобы сравнивать корректно
+	// Use UTC time for consistent comparison with stored timestamps.
 	currentTime := time.Now().UTC()
 
-	// ВАЖНО: В запросе 2 параметра ($1, $2), и мы передаем ровно 2 аргумента.
 	err := r.postgres.QueryRow(ctx, query, receiver, currentTime).Scan(
 		&otpDB.ID, &otpDB.Attempt, &otpDB.Receiver, &otpDB.Method, &otpDB.OTPCode,
 		&otpDB.IsVerified, &otpDB.SentAt, &otpDB.ExpiresAt, &otpDB.UpdatedAt,
@@ -61,7 +65,7 @@ func (r *Repository) GetOTP(ctx context.Context, receiver string) (*models.OTP, 
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// Если не нашли - логируем детали для отладки
+			// Log details when OTP is not found for debugging.
 			log.Warn().
 				Str("receiver", receiver).
 				Time("check_time_utc", currentTime).
@@ -74,6 +78,7 @@ func (r *Repository) GetOTP(ctx context.Context, receiver string) (*models.OTP, 
 	return otpDB.ToDomain(), nil
 }
 
+// MarkOTPAsVerified sets the is_verified flag on an OTP record.
 func (r *Repository) MarkOTPAsVerified(ctx context.Context, otpID int) error {
 	const query = `UPDATE otp SET is_verified=true, updated_at=NOW() WHERE id=$1`
 	result, err := r.postgres.Exec(ctx, query, otpID)
@@ -89,6 +94,7 @@ func (r *Repository) MarkOTPAsVerified(ctx context.Context, otpID int) error {
 	return nil
 }
 
+// IncreaseOTPAttempt increments the failed-attempt counter for an OTP record.
 func (r *Repository) IncreaseOTPAttempt(ctx context.Context, otpID int, phone string) error {
 	const query = `
     UPDATE otp

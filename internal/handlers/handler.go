@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package handlers
 
 import (
 	"context"
 	"errors"
 	"net/http"
+
 	"shb/internal/configs"
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
@@ -18,20 +22,28 @@ import (
 	"github.com/rs/zerolog"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"golang.org/x/oauth2"
 )
 
+// Limiter defines the rate-limiting contract used by the handler layer.
 type Limiter interface {
 	Allow(ctx context.Context, key string, limit int, windowSeconds int) (bool, error)
 	ResetAttempts(ctx context.Context, key string) error
 }
+
+// IService defines the business logic contract used by the handler layer.
 type IService interface {
 	SendOTP(ctx context.Context, receiver string) (int, error)
 	ConfirmOTP(ctx context.Context, phone, otp string) (*models.TokenResponse, error)
 	Login(ctx context.Context, phone, password string) (*models.TokenResponse, error)
 	Register(ctx context.Context, email, phone, password, fullName, role string, institutionID *int) (*models.TokenResponse, error)
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	CreateUser(ctx context.Context, user *models.User) error
+	LoginOAuth(ctx context.Context, oauthUserInfo models.OAuthUserInfo) (*models.TokenResponse, error)
+	UpdateUserOAuthInfoByEmail(ctx context.Context, info models.OAuthUserInfo) (*models.User, error)
 
-	GetAllInstitutions(ctx context.Context, search string, iType string, userLat, userLng float64, sortBy string) ([]*models.Institution, error)
+	GetAllInstitutions(ctx context.Context, q models.InstitutionListQuery) (*models.InstitutionPage, error)
 	CreateInstitution(ctx context.Context, i *models.Institution) (int, error)
 	GetInstitutionByID(ctx context.Context, id int) (*models.Institution, error)
 
@@ -49,42 +61,79 @@ type IService interface {
 	GetBookingsByUser(ctx context.Context, userID int) ([]*models.Booking, error)
 	CancelMyBooking(ctx context.Context, bookingID int, userID int) error
 	UpdateMyBooking(ctx context.Context, bookingID int, userID int, qty float64) error
+	UserExists(ctx context.Context, email string, phone string) (bool, bool, bool, error)
 
 	// --- Event Methods ---
 	CreateEvent(ctx context.Context, e *models.Event) (int, error)
-	GetAllEvents(ctx context.Context, userID int) ([]*models.EventResponse, error)
+	GetAllEvents(ctx context.Context, q models.EventListQuery) (*models.EventPage, error)
+	GetEventDetail(ctx context.Context, q models.EventDetailQuery) (*models.EventResponse, error)
 	GetEventByID(ctx context.Context, id int) (*models.Event, error)
 	JoinEvent(ctx context.Context, eventID, userID int) error
 	LeaveEvent(ctx context.Context, eventID, userID int) error
+	GetInstitutionEvents(ctx context.Context, institutionID int) ([]*models.EventResponse, error)
+	ApproveEvent(ctx context.Context, eventID int) error
+	RejectEvent(ctx context.Context, eventID int) error
 
-	// --- Stats Methods ---
+	// --- Stats ---
 	GetPublicStats(ctx context.Context) (map[string]int, error)
 
-	// --- SMS Methods ---
+	// --- Vacancies ---
+	GetAllVacancies(ctx context.Context) ([]*models.Vacancy, error)
+	GetVacancyByID(ctx context.Context, id int) (*models.Vacancy, error)
+
+	// --- Team Members ---
+	GetAllTeamMembers(ctx context.Context) ([]*models.TeamMember, error)
+	GetTeamMemberByID(ctx context.Context, id int) (*models.TeamMember, error)
+
+	// --- SMS ---
 	CheckSMSBalance(ctx context.Context) (*smsProvider.BalanceResult, error)
+
+	// --- Token Management ---
+	RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenResponse, error)
+	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
 }
 
+type OAuthProvider interface {
+	ProviderName() string
+	CallbackPath() string
+	OAuth2Config() *oauth2.Config
+	GetUser(ctx context.Context, tok *oauth2.Token) (models.OAuthUserInfo, error)
+}
+
+// Handler holds all dependencies for the HTTP handler layer.
 type Handler struct {
-	service    IService
-	limiter    Limiter                 // CHANGED: Use local interface
-	middleware *middlewares.Middleware // CHANGED: Use imported type (pointer likely)
-	logger     *zerolog.Logger
-	cfg        *configs.Config
+	service        IService
+	limiter        Limiter
+	middleware     *middlewares.Middleware
+	logger         *zerolog.Logger
+	cfg            *configs.Config
+	oauthProviders []OAuthProvider
 }
 
-func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middleware, logger *zerolog.Logger, cfg *configs.Config) *Handler {
+// NewHandler constructs a Handler with all required dependencies injected.
+func NewHandler(
+	service IService,
+	limiter Limiter,
+	middleware *middlewares.Middleware,
+	logger *zerolog.Logger,
+	cfg *configs.Config,
+	oauthProviders ...OAuthProvider,
+) *Handler {
 	return &Handler{
-		service:    service,
-		limiter:    limiter,
-		middleware: middleware,
-		logger:     logger,
-		cfg:        cfg,
+		service:        service,
+		limiter:        limiter,
+		middleware:     middleware,
+		logger:         logger,
+		cfg:            cfg,
+		oauthProviders: oauthProviders,
 	}
 }
 
+// InitRoutes registers all application routes and returns the configured Gin engine.
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
 	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), middlewares.PrometheusMiddleware())
+	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.AlertMiddleware())
 	router.NoRoute(h.noRoute)
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
@@ -99,13 +148,36 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			v1.Static("/docs", "./docs")
 		}
 
+		v1.GET("/telegram/panic", func(c *gin.Context) {
+			panic("telegram test")
+		})
+		v1.GET("/telegram/5xx", func(c *gin.Context) {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"error": "test 500",
+				},
+			)
+		})
+		oauth := v1.Group("/oauth")
+		{
+			for _, oauthProvider := range h.oauthProviders {
+
+				oauthPath := "/" + oauthProvider.ProviderName()
+				oauthCallbackPath := oauthPath + "/" + oauthProvider.CallbackPath()
+
+				oauth.GET(oauthPath, h.oauth(oauthProvider.OAuth2Config()))
+				oauth.GET(oauthCallbackPath, h.oauthCallback(oauthProvider))
+			}
+		}
+
 		v1.POST("/send_otp", h.sendOTP)
 		v1.POST("/confirm_otp", h.confirmOTP)
 		v1.POST("/login", h.login)
 		v1.POST("/register", h.register)
-		v1.POST("/logout", h.logout)
+		v1.POST("/logout", h.middleware.AuthMiddleware(), h.logout)
+		v1.POST("/refresh", h.refreshTokens)
 
-		// Исправленный вызов middleware
 		v1.GET("/check_access", h.middleware.AuthMiddleware(), func(c *gin.Context) {
 			h.success(c, "valid")
 		})
@@ -118,7 +190,9 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		v1.POST("/institutions", h.middleware.AuthMiddleware(models.RoleSuperAdmin), h.createInstitution)
 
 		v1.GET("/institutions/:id/needs", h.getNeedsByInstitution)
+		v1.GET("/institutions/:id/needs/:needID", h.getNeedByID)
 
+		// Need management (employees and super-admins only).
 		needs := v1.Group("/needs")
 		needs.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
 		{
@@ -127,9 +201,9 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			needs.DELETE("/:id", h.deleteNeed)
 		}
 
-		// Bookings (Protected) - отклики волонтеров
+		// Volunteer booking routes (any authenticated user).
 		bookings := v1.Group("/bookings")
-		bookings.Use(h.middleware.AuthMiddleware()) // Any authenticated user
+		bookings.Use(h.middleware.AuthMiddleware())
 		{
 			bookings.POST("", h.createBooking)
 			bookings.GET("/my", h.getMyBookings)
@@ -137,7 +211,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			bookings.PUT("/my/:id", h.updateMyBooking)
 		}
 
-		// Booking management (Protected) - управление откликами
+		// Booking management routes (employees and super-admins only).
 		bookingMgmt := v1.Group("/bookings")
 		bookingMgmt.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
 		{
@@ -146,18 +220,35 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			bookingMgmt.PUT("/:id/complete", h.completeBooking)
 		}
 
-		// Institution bookings (Protected) - просмотр откликов учреждения
+		// Institution booking view (employees and super-admins only).
 		institutionBookings := v1.Group("/institutions/:id/bookings")
 		institutionBookings.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
 		{
 			institutionBookings.GET("", h.getInstitutionBookings)
 		}
 
-		// Events routes - волонтёрские события
+		// Event routes.
 		v1.GET("/events", h.middleware.OptionalAccessToken(), h.getAllEvents)
+		v1.GET("/events/:id", h.middleware.OptionalAccessToken(), h.getEventByID)
 		v1.POST("/events", h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin), h.createEvent)
 		v1.POST("/events/:id/join", h.middleware.AuthMiddleware(), h.joinEvent)
 		v1.DELETE("/events/:id/leave", h.middleware.AuthMiddleware(), h.leaveEvent)
+
+		v1.GET("/institutions/:id/events", h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin), h.getInstitutionEvents)
+
+		eventMgmt := v1.Group("/events")
+		eventMgmt.Use(h.middleware.AuthMiddleware(models.RoleEmployee, models.RoleSuperAdmin))
+		{
+			eventMgmt.PUT("/:id/approve", h.approveEvent)
+			eventMgmt.PUT("/:id/reject", h.rejectEvent)
+		}
+
+		// Vacancies and team members (public).
+		v1.GET("/vacancies", h.getAllVacancies)
+		v1.GET("/vacancies/:id", h.getVacancyByID)
+
+		v1.GET("/team", h.getAllTeamMembers)
+		v1.GET("/team/:id", h.getTeamMemberByID)
 	}
 	return router
 }
@@ -181,30 +272,49 @@ func (h *Handler) success(c *gin.Context, data any) {
 	}, http.StatusOK)
 }
 
+// handleError maps domain errors to the appropriate HTTP status codes and
+// response bodies.
 func (h *Handler) handleError(c *gin.Context, err error) {
+	log := zerolog.Ctx(c.Request.Context())
+
 	badReq := &myerrors.BadRequestErr{}
 	forbidden := &myerrors.ForbiddenErr{}
 	unprocessable := &myerrors.UnprocessableErr{}
 	unauth := &myerrors.UnauthorizedErr{}
 	manyReq := &myerrors.TooManyRequestsErr{}
+	conflict := &myerrors.ConflictErr{}
 
 	switch {
+	case errors.Is(err, myerrors.ErrNotFound):
+		log.Warn().Err(err).Msg("not found")
+		c.JSON(http.StatusNotFound, gin.H{"message": myerrors.ErrNotFound.Error()})
 	case errors.As(err, unprocessable):
+		log.Warn().Err(err).Msg("unprocessable entity")
 		c.JSON(http.StatusUnprocessableEntity, unprocessable)
 	case errors.As(err, badReq):
+		log.Warn().Err(err).Msg("bad request")
 		c.JSON(http.StatusBadRequest, badReq)
 	case errors.As(err, forbidden):
+		log.Warn().Err(err).Msg("forbidden")
 		c.JSON(http.StatusForbidden, forbidden)
 	case errors.As(err, unauth):
+		log.Warn().Err(err).Msg("unauthorized")
 		c.JSON(http.StatusUnauthorized, unauth)
 	case errors.As(err, manyReq):
+		log.Warn().Err(err).Msg("too many requests")
 		c.JSON(http.StatusTooManyRequests, manyReq)
+	case errors.As(err, conflict):
+		log.Warn().Err(err).Msg("conflict")
+		c.JSON(http.StatusConflict, conflict)
 	default:
+		log.Error().Err(err).Msg("internal server error")
 		c.JSON(http.StatusInternalServerError, myerrors.InternalError())
 	}
 	c.Abort()
 }
 
+// RequestID is a middleware that ensures every request carries a unique
+// request ID header and propagates it through the request context.
 func (h *Handler) RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID := c.Request.Header.Get(constants.RequestIDHeader)
@@ -213,14 +323,19 @@ func (h *Handler) RequestID() gin.HandlerFunc {
 		}
 		ctx := c.Request.Context()
 		ctx = context.WithValue(ctx, constants.RequestIDKey, requestID)
+		log := h.logger.With().Str("request_id", requestID).Logger()
+		ctx = log.WithContext(ctx)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }
 
+// CORSMiddleware sets permissive CORS headers for recognised origins and
+// handles pre-flight OPTIONS requests.
 func (h *Handler) CORSMiddleware() gin.HandlerFunc {
 	allowedOrigins := map[string]bool{
-		"http://89.167.77.120":  true,
+		"https://hadaf.tj":      true,
+		"https://www.hadaf.tj":  true,
 		"http://localhost:3000": true,
 	}
 
@@ -240,4 +355,20 @@ func (h *Handler) CORSMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func (h *Handler) mustGetUserID(c *gin.Context) (int, bool) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		h.handleError(c, myerrors.NewUnauthorizedErr("user not authenticated"))
+		return 0, true
+	}
+
+	userIDInt, ok := userID.(int)
+	if !ok {
+		h.handleError(c, myerrors.NewUnauthorizedErr("invalid user ID"))
+		return 0, true
+	}
+
+	return userIDInt, false
 }

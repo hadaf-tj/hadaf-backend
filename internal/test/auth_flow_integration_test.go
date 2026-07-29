@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package test
 
 import (
@@ -283,9 +286,15 @@ func applySchema(t *testing.T, pool *pgxpool.Pool) {
 	require.NoError(t, err)
 	root := filepath.Clean(filepath.Join(cwd, "..", ".."))
 	schemaPath := filepath.Join(root, "migration", "shb.sql")
+	addOAuthInfoColumnsMigrationPath := filepath.Join(root, "migration", "add_oauth_info_columns.sql")
+	executeMigrations(t, pool, schemaPath, addOAuthInfoColumnsMigrationPath)
+}
 
-	raw, err := os.ReadFile(schemaPath)
-	require.NoError(t, err)
-	_, err = pool.Exec(context.Background(), string(raw))
-	require.NoError(t, err)
+func executeMigrations(t *testing.T, pool *pgxpool.Pool, filePaths ...string) {
+	for _, path := range filePaths {
+		raw, err := os.ReadFile(path)
+		require.NoError(t, err)
+		_, err = pool.Exec(context.Background(), string(raw))
+		require.NoError(t, err)
+	}
 }

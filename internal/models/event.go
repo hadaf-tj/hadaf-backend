@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package models
 
 import "time"
@@ -9,13 +12,14 @@ type Event struct {
 	EventDate     time.Time  `json:"event_date"`
 	InstitutionID int        `json:"institution_id"`
 	CreatorID     int        `json:"creator_id"`
+	Status        string     `json:"status"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at"`
 	IsDeleted     bool       `json:"is_deleted"`
 	DeletedAt     *time.Time `json:"deleted_at"`
 }
 
-// EventResponse - расширенная модель для ответа API (с дополнительными полями)
+// EventResponse is the extended event model returned by the API (includes computed fields).
 type EventResponse struct {
 	ID                int       `json:"id"`
 	Title             string    `json:"title"`
@@ -28,6 +32,7 @@ type EventResponse struct {
 	CreatorAvatar     *string   `json:"creator_avatar"`
 	ParticipantsCount int       `json:"participants_count"`
 	IsJoined          bool      `json:"is_joined"`
+	Status            string    `json:"status"`
 	CreatedAt         time.Time `json:"created_at"`
 }
 

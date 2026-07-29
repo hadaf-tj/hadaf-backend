@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
+
 package minioFs
 
 import (
@@ -40,7 +43,7 @@ func NewMinIOStorage(cfg MinIOConfig) (*MinIOStorage, error) {
 		return nil, fmt.Errorf("failed to create minio client: %w", err)
 	}
 
-	// Проверим что бакет существует (или создадим)
+	// Ensure the target bucket exists; create it if not.
 	ctx := context.Background()
 	exists, err := client.BucketExists(ctx, cfg.Bucket)
 	if err != nil {
@@ -112,7 +115,7 @@ func (s *MinIOStorage) generateFileURL(filePath string) string {
 		scheme = "https"
 	}
 
-	// Убираем протокол если он указан
+	// Strip the protocol prefix if the endpoint includes one.
 	endpoint := s.endpoint
 	if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
 		if u, err := url.Parse(endpoint); err == nil {
