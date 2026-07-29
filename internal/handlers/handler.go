@@ -11,6 +11,7 @@ import (
 	"shb/internal/configs"
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
+	"shb/internal/services"
 	"shb/pkg/constants"
 	"shb/pkg/external/sms/smsProvider"
 	"shb/pkg/middlewares"
@@ -91,6 +92,9 @@ type IService interface {
 	// --- Token Management ---
 	RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenResponse, error)
 	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
+
+	// UpdateProfile partially updates the user's profile information (full name and/or phone).
+	UpdateProfile(ctx context.Context, userID int, req models.UpdateProfileRequest) error
 }
 
 type OAuthProvider interface {
@@ -134,6 +138,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
 	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), middlewares.PrometheusMiddleware())
 	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.AlertMiddleware())
+	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.LoggerMiddleware(), h.middleware.AlertMiddleware())
 	router.NoRoute(h.noRoute)
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
@@ -182,6 +187,8 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			h.success(c, "valid")
 		})
 		v1.GET("/me", h.middleware.AuthMiddleware(), h.getMe)
+		userHandler := NewUserHandler(h.service.(*services.Service))
+		v1.PATCH("/me", h.middleware.AuthMiddleware(), userHandler.UpdateProfile)
 		v1.GET("/stats", h.getStats)
 		v1.GET("/sms/balance", h.middleware.AuthMiddleware(), h.getSMSBalance)
 
