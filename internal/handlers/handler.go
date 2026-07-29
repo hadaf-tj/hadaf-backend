@@ -12,6 +12,7 @@ import (
 	"shb/internal/configs"
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
+	"shb/internal/services"
 	"shb/pkg/constants"
 	"shb/pkg/external/sms/smsProvider"
 	"shb/pkg/metrics"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -98,6 +100,9 @@ type IService interface {
 	// --- Token Management ---
 	RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenResponse, error)
 	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
+
+	// UpdateProfile partially updates the user's profile information (full name and/or phone).
+	UpdateProfile(ctx context.Context, userID int, req models.UpdateProfileRequest) error
 }
 
 type OAuthProvider interface {
@@ -176,9 +181,12 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		router.Use(h.metrics.Middleware())
 		router.GET(metrics.Endpoint(), h.metrics.Handler())
 	}
+	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), middlewares.PrometheusMiddleware())
 	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.AlertMiddleware())
+	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.LoggerMiddleware(), h.middleware.AlertMiddleware())
 	router.NoRoute(h.noRoute)
 
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	router.GET("/ping", h.ping)
 	router.GET("/healthz", h.healthz)
 	router.GET("/readyz", h.readyz)
@@ -227,6 +235,8 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		})
 		v1.GET("/me", h.middleware.AuthMiddleware(), h.getMe)
 		v1.PATCH("/me", h.middleware.AuthMiddleware(), h.updateProfile)
+		userHandler := NewUserHandler(h.service.(*services.Service))
+		v1.PATCH("/me", h.middleware.AuthMiddleware(), userHandler.UpdateProfile)
 		v1.GET("/stats", h.getStats)
 		v1.GET("/sms/balance", h.middleware.AuthMiddleware(), h.getSMSBalance)
 

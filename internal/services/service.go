@@ -43,6 +43,8 @@ type IRepository interface {
 	// Ping verifies connectivity to the database (used by readiness checks).
 	Ping(ctx context.Context) error
 
+	// UpdateProfile updates the full_name and phone fields of a user if provided.
+	UpdateProfile(ctx context.Context, id int, req models.UpdateProfileRequest) error
 	// SaveOTP persists a new OTP record to the database.
 	SaveOTP(ctx context.Context, o *models.OTP) (int, error)
 	// GetOTP retrieves the latest active, unverified OTP for the given receiver.
