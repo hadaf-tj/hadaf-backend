@@ -22,6 +22,25 @@ type MockIRepository_Expecter struct {
 	mock *mock.Mock
 }
 
+func (_m *MockIRepository) UpdateProfile(ctx context.Context, id int, req models.UpdateProfileRequest) error {
+	ret := _m.Called(ctx, id, req)
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateProfile")
+	}
+	return ret.Error(0)
+}
+
+type MockIRepository_UpdateProfile_Call struct{ *mock.Call }
+
+func (_e *MockIRepository_Expecter) UpdateProfile(ctx interface{}, id interface{}, req interface{}) *MockIRepository_UpdateProfile_Call {
+	return &MockIRepository_UpdateProfile_Call{Call: _e.mock.On("UpdateProfile", ctx, id, req)}
+}
+
+func (_c *MockIRepository_UpdateProfile_Call) Return(err error) *MockIRepository_UpdateProfile_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
 func (_m *MockIRepository) EXPECT() *MockIRepository_Expecter {
 	return &MockIRepository_Expecter{mock: &_m.Mock}
 }
@@ -70,6 +89,41 @@ func (_c *MockIRepository_ActivateUser_Call) Return(_a0 error) *MockIRepository_
 
 func (_c *MockIRepository_ActivateUser_Call) RunAndReturn(run func(context.Context, int) error) *MockIRepository_ActivateUser_Call {
 	_c.Call.Return(run)
+	return _c
+}
+
+func (_m *MockIRepository) CountPendingThisMonth(ctx context.Context) (int, error) {
+	ret := _m.Called(ctx)
+	if len(ret) == 0 {
+		panic("no return value specified for CountPendingThisMonth")
+	}
+	return ret.Int(0), ret.Error(1)
+}
+
+type MockIRepository_CountPendingThisMonth_Call struct{ *mock.Call }
+
+func (_e *MockIRepository_Expecter) CountPendingThisMonth(ctx interface{}) *MockIRepository_CountPendingThisMonth_Call {
+	return &MockIRepository_CountPendingThisMonth_Call{Call: _e.mock.On("CountPendingThisMonth", ctx)}
+}
+func (_c *MockIRepository_CountPendingThisMonth_Call) Return(a0 int, a1 error) *MockIRepository_CountPendingThisMonth_Call {
+	_c.Call.Return(a0, a1)
+	return _c
+}
+func (_m *MockIRepository) CreateBeneficiary(ctx context.Context, beneficiary *models.Beneficiary) error {
+	ret := _m.Called(ctx, beneficiary)
+	if len(ret) == 0 {
+		panic("no return value specified for CreateBeneficiary")
+	}
+	return ret.Error(0)
+}
+
+type MockIRepository_CreateBeneficiary_Call struct{ *mock.Call }
+
+func (_e *MockIRepository_Expecter) CreateBeneficiary(ctx interface{}, beneficiary interface{}) *MockIRepository_CreateBeneficiary_Call {
+	return &MockIRepository_CreateBeneficiary_Call{Call: _e.mock.On("CreateBeneficiary", ctx, beneficiary)}
+}
+func (_c *MockIRepository_CreateBeneficiary_Call) Return(a0 error) *MockIRepository_CreateBeneficiary_Call {
+	_c.Call.Return(a0)
 	return _c
 }
 
@@ -2586,44 +2640,27 @@ func (_c *MockIRepository_UpdateNeed_Call) RunAndReturn(run func(context.Context
 // UpdateUserProfile provides a mock function with given fields: ctx, id, fullName, phone
 func (_m *MockIRepository) UpdateUserProfile(ctx context.Context, id int, fullName *string, phone *string) (*models.User, error) {
 	ret := _m.Called(ctx, id, fullName, phone)
-
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateUserProfile")
+	}
+	var r0 *models.User
+	if ret.Get(0) != nil {
+		r0 = ret.Get(0).(*models.User)
+	}
+	return r0, ret.Error(1)
+}
+
 // UpdateUserOAuthInfoByEmail provides a mock function with given fields: ctx, info
 func (_m *MockIRepository) UpdateUserOAuthInfoByEmail(ctx context.Context, info models.OAuthUserInfo) (*models.User, error) {
 	ret := _m.Called(ctx, info)
-
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateUserOAuthInfoByEmail")
 	}
-
 	var r0 *models.User
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, *string, *string) (*models.User, error)); ok {
-		return rf(ctx, id, fullName, phone)
+	if ret.Get(0) != nil {
+		r0 = ret.Get(0).(*models.User)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, *string, *string) *models.User); ok {
-		r0 = rf(ctx, id, fullName, phone)
-	if rf, ok := ret.Get(0).(func(context.Context, models.OAuthUserInfo) (*models.User, error)); ok {
-		return rf(ctx, info)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, models.OAuthUserInfo) *models.User); ok {
-		r0 = rf(ctx, info)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.User)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int, *string, *string) error); ok {
-		r1 = rf(ctx, id, fullName, phone)
-	if rf, ok := ret.Get(1).(func(context.Context, models.OAuthUserInfo) error); ok {
-		r1 = rf(ctx, info)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0, ret.Error(1)
 }
 
 // MockIRepository_UpdateUserProfile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserProfile'
@@ -2643,6 +2680,20 @@ func (_e *MockIRepository_Expecter) UpdateUserProfile(ctx interface{}, id interf
 func (_c *MockIRepository_UpdateUserProfile_Call) Run(run func(ctx context.Context, id int, fullName *string, phone *string)) *MockIRepository_UpdateUserProfile_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(int), args[2].(*string), args[3].(*string))
+	})
+	return _c
+}
+
+func (_c *MockIRepository_UpdateUserProfile_Call) Return(_a0 *models.User, _a1 error) *MockIRepository_UpdateUserProfile_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIRepository_UpdateUserProfile_Call) RunAndReturn(run func(context.Context, int, *string, *string) (*models.User, error)) *MockIRepository_UpdateUserProfile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MockIRepository_UpdateUserOAuthInfoByEmail_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserOAuthInfoByEmail'
 type MockIRepository_UpdateUserOAuthInfoByEmail_Call struct {
 	*mock.Call
@@ -2662,13 +2713,11 @@ func (_c *MockIRepository_UpdateUserOAuthInfoByEmail_Call) Run(run func(ctx cont
 	return _c
 }
 
-func (_c *MockIRepository_UpdateUserProfile_Call) Return(_a0 *models.User, _a1 error) *MockIRepository_UpdateUserProfile_Call {
 func (_c *MockIRepository_UpdateUserOAuthInfoByEmail_Call) Return(_a0 *models.User, _a1 error) *MockIRepository_UpdateUserOAuthInfoByEmail_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockIRepository_UpdateUserProfile_Call) RunAndReturn(run func(context.Context, int, *string, *string) (*models.User, error)) *MockIRepository_UpdateUserProfile_Call {
 func (_c *MockIRepository_UpdateUserOAuthInfoByEmail_Call) RunAndReturn(run func(context.Context, models.OAuthUserInfo) (*models.User, error)) *MockIRepository_UpdateUserOAuthInfoByEmail_Call {
 	_c.Call.Return(run)
 	return _c

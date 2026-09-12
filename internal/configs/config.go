@@ -13,17 +13,6 @@ import (
 )
 
 type Config struct {
-	App      AppConfig
-	Security SecurityConfig
-	Database DatabaseConfig
-	Logger   LoggerConfig
-	SMS      SMSConfig
-	SMTP     SMTPConfig
-	Server   ServerConfig
-	Service  ServiceConfig
-	Redis    RedisConfig
-	Minio    MinioConfig
-	Tracing  TracingConfig
 	App         AppConfig
 	Security    SecurityConfig
 	Database    DatabaseConfig
@@ -35,6 +24,7 @@ type Config struct {
 	Service     ServiceConfig
 	Redis       RedisConfig
 	Minio       MinioConfig
+	Tracing     TracingConfig
 	GoogleOAuth OAuthProviderConfig
 }
 
@@ -105,7 +95,8 @@ type ServerConfig struct {
 }
 
 type ServiceConfig struct {
-	Security SecurityConfig
+	Security               SecurityConfig
+	MaxPendingApplications int
 }
 
 type RedisConfig struct {
@@ -132,6 +123,8 @@ type TracingConfig struct {
 	ServiceName    string  // resource attribute service.name
 	ServiceVersion string  // resource attribute service.version
 	SampleRatio    float64 // head sampling probability in [0,1]
+}
+
 type TelegramConfig struct {
 	BaseURL string
 	Token   string
@@ -172,6 +165,19 @@ func getEnvFloat(key string, fallback float64) float64 {
 		return fallback
 	}
 	parsed, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+// getEnvInt reads an integer ENV var, falling back when unset or unparseable.
+func getEnvInt(key string, fallback int) int {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(v)
 	if err != nil {
 		return fallback
 	}
@@ -229,10 +235,8 @@ func InitConfigs() (*Config, error) {
 
 	return &Config{
 		App: AppConfig{
-			Port: getEnv("APP_PORT", ":8000"),
-			Env:  appEnv,
 			Port:        getEnv("APP_PORT", ":8000"),
-			Env:         getEnv("APP_ENV", "prod"),
+			Env:         appEnv,
 			FrontendURL: getEnv("APP_FRONTEND_URL", "http://localhost:3000"),
 		},
 		Security: security,
@@ -266,7 +270,8 @@ func InitConfigs() (*Config, error) {
 			ReadTimeout:  getEnv("APP_READ_TIMEOUT", "10s"),
 		},
 		Service: ServiceConfig{
-			Security: security,
+			Security:               security,
+			MaxPendingApplications: getEnvInt("MAX_PENDING_APPLICATIONS", 10),
 		},
 		Redis: RedisConfig{
 			Host:      getEnv("REDIS_HOST", "localhost"),
@@ -287,6 +292,7 @@ func InitConfigs() (*Config, error) {
 			ServiceName:    getEnv("OTEL_SERVICE_NAME", "shb"),
 			ServiceVersion: getEnv("OTEL_SERVICE_VERSION", "dev"),
 			SampleRatio:    getEnvFloat("OTEL_TRACES_SAMPLER_ARG", 1.0),
+		},
 		Telegram: TelegramConfig{
 			Token:   getEnv("TELEGRAM_ALERT_TOKEN", ""),
 			ChatID:  getEnv("TELEGRAM_ALERT_CHAT_ID", ""),

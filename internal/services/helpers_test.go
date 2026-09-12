@@ -21,6 +21,7 @@ import (
 
 func testServiceConfig() *configs.ServiceConfig {
 	return &configs.ServiceConfig{
+		MaxPendingApplications: 10,
 		Security: configs.SecurityConfig{
 			OTPLength:       6,
 			OTPDuration:     5 * time.Minute,

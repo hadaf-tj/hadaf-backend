@@ -238,10 +238,6 @@ func (h *Handler) register(c *gin.Context) {
 
 	// Apply rate limiting only in non-local environments.
 	if !h.cfg.App.IsLocal() {
-	isLocal := os.Getenv("APP_ENV") == "development" ||
-		os.Getenv("APP_ENV") == "local"
-
-	if !isLocal {
 		ipKey := fmt.Sprintf("register_ip:%s", c.ClientIP())
 		allowed, err := h.limiter.Allow(ctx, ipKey, 3, 60) // Max 3 registrations per hour per IP.
 
@@ -551,6 +547,8 @@ func (h *Handler) updateProfile(c *gin.Context) {
 	user.Password = nil
 
 	h.success(c, user)
+}
+
 // oauth handles the start of server-side OAuth authentication, by redirecting
 // user to OAuth provider's consent page.
 func (h *Handler) oauth(cfg *oauth2.Config) gin.HandlerFunc {

@@ -178,10 +178,9 @@ func NewApplication() *App {
 	service := services.NewService(&cfg.Service, &log.Logger, repository, redis,
 		instrumentedSMS, token, instrumentedStorage, instrumentedEmail)
 
-	handler := handlers.NewHandler(service, limiter, middleware, appMetrics, &log.Logger, cfg)
 	googleOAuthProvider := oauth.NewGoogleProvider(&cfg.GoogleOAuth)
 
-	handler := handlers.NewHandler(service, limiter, middleware, &log.Logger, cfg, googleOAuthProvider)
+	handler := handlers.NewHandler(service, limiter, middleware, appMetrics, &log.Logger, cfg, googleOAuthProvider)
 
 	// 5. Server (Map config)
 	readTimeout, _ := time.ParseDuration(cfg.Server.ReadTimeout)

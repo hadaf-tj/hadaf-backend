@@ -22,6 +22,48 @@ type MockIService_Expecter struct {
 	mock *mock.Mock
 }
 
+func (_m *MockIService) UserExists(ctx context.Context, email string, phone string) (bool, bool, bool, error) {
+	ret := _m.Called(ctx, email, phone)
+	if len(ret) == 0 {
+		panic("no return value specified for UserExists")
+	}
+	return ret.Bool(0), ret.Bool(1), ret.Bool(2), ret.Error(3)
+}
+
+type MockIService_UserExists_Call struct{ *mock.Call }
+
+func (_e *MockIService_Expecter) UserExists(ctx interface{}, email interface{}, phone interface{}) *MockIService_UserExists_Call {
+	return &MockIService_UserExists_Call{Call: _e.mock.On("UserExists", ctx, email, phone)}
+}
+
+func (_c *MockIService_UserExists_Call) Return(exists bool, emailExists bool, phoneExists bool, err error) *MockIService_UserExists_Call {
+	_c.Call.Return(exists, emailExists, phoneExists, err)
+	return _c
+}
+
+func (_m *MockIService) GetApplicationQuota(ctx context.Context) (*models.ApplicationQuota, error) {
+	ret := _m.Called(ctx)
+	if len(ret) == 0 {
+		panic("no return value specified for GetApplicationQuota")
+	}
+	var quota *models.ApplicationQuota
+	if ret.Get(0) != nil {
+		quota = ret.Get(0).(*models.ApplicationQuota)
+	}
+	return quota, ret.Error(1)
+}
+
+type MockIService_GetApplicationQuota_Call struct{ *mock.Call }
+
+func (_e *MockIService_Expecter) GetApplicationQuota(ctx interface{}) *MockIService_GetApplicationQuota_Call {
+	return &MockIService_GetApplicationQuota_Call{Call: _e.mock.On("GetApplicationQuota", ctx)}
+}
+
+func (_c *MockIService_GetApplicationQuota_Call) Return(quota *models.ApplicationQuota, err error) *MockIService_GetApplicationQuota_Call {
+	_c.Call.Return(quota, err)
+	return _c
+}
+
 func (_m *MockIService) EXPECT() *MockIService_Expecter {
 	return &MockIService_Expecter{mock: &_m.Mock}
 }
@@ -2343,44 +2385,27 @@ func (_c *MockIService_UpdateNeed_Call) RunAndReturn(run func(context.Context, *
 // UpdateProfile provides a mock function with given fields: ctx, userID, fullName, phone
 func (_m *MockIService) UpdateProfile(ctx context.Context, userID int, fullName *string, phone *string) (*models.User, error) {
 	ret := _m.Called(ctx, userID, fullName, phone)
-
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateProfile")
+	}
+	var user *models.User
+	if ret.Get(0) != nil {
+		user = ret.Get(0).(*models.User)
+	}
+	return user, ret.Error(1)
+}
+
 // UpdateUserOAuthInfoByEmail provides a mock function with given fields: ctx, info
 func (_m *MockIService) UpdateUserOAuthInfoByEmail(ctx context.Context, info models.OAuthUserInfo) (*models.User, error) {
 	ret := _m.Called(ctx, info)
-
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateUserOAuthInfoByEmail")
 	}
-
-	var r0 *models.User
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, *string, *string) (*models.User, error)); ok {
-		return rf(ctx, userID, fullName, phone)
+	var user *models.User
+	if ret.Get(0) != nil {
+		user = ret.Get(0).(*models.User)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, *string, *string) *models.User); ok {
-		r0 = rf(ctx, userID, fullName, phone)
-	if rf, ok := ret.Get(0).(func(context.Context, models.OAuthUserInfo) (*models.User, error)); ok {
-		return rf(ctx, info)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, models.OAuthUserInfo) *models.User); ok {
-		r0 = rf(ctx, info)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.User)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int, *string, *string) error); ok {
-		r1 = rf(ctx, userID, fullName, phone)
-	if rf, ok := ret.Get(1).(func(context.Context, models.OAuthUserInfo) error); ok {
-		r1 = rf(ctx, info)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return user, ret.Error(1)
 }
 
 // MockIService_UpdateProfile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateProfile'
@@ -2400,6 +2425,20 @@ func (_e *MockIService_Expecter) UpdateProfile(ctx interface{}, userID interface
 func (_c *MockIService_UpdateProfile_Call) Run(run func(ctx context.Context, userID int, fullName *string, phone *string)) *MockIService_UpdateProfile_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(int), args[2].(*string), args[3].(*string))
+	})
+	return _c
+}
+
+func (_c *MockIService_UpdateProfile_Call) Return(_a0 *models.User, _a1 error) *MockIService_UpdateProfile_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockIService_UpdateProfile_Call) RunAndReturn(run func(context.Context, int, *string, *string) (*models.User, error)) *MockIService_UpdateProfile_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MockIService_UpdateUserOAuthInfoByEmail_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUserOAuthInfoByEmail'
 type MockIService_UpdateUserOAuthInfoByEmail_Call struct {
 	*mock.Call
@@ -2419,13 +2458,11 @@ func (_c *MockIService_UpdateUserOAuthInfoByEmail_Call) Run(run func(ctx context
 	return _c
 }
 
-func (_c *MockIService_UpdateProfile_Call) Return(_a0 *models.User, _a1 error) *MockIService_UpdateProfile_Call {
 func (_c *MockIService_UpdateUserOAuthInfoByEmail_Call) Return(_a0 *models.User, _a1 error) *MockIService_UpdateUserOAuthInfoByEmail_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockIService_UpdateProfile_Call) RunAndReturn(run func(context.Context, int, *string, *string) (*models.User, error)) *MockIService_UpdateProfile_Call {
 func (_c *MockIService_UpdateUserOAuthInfoByEmail_Call) RunAndReturn(run func(context.Context, models.OAuthUserInfo) (*models.User, error)) *MockIService_UpdateUserOAuthInfoByEmail_Call {
 	_c.Call.Return(run)
 	return _c
