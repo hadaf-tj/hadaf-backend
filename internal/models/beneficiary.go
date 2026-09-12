@@ -31,3 +31,11 @@ type Beneficiary struct {
 	DeletedAt       *time.Time `json:"deleted_at"`
 	IsDeleted       bool       `json:"-"`
 }
+
+// ApplicationQuota describes the current global monthly beneficiary-application capacity.
+type ApplicationQuota struct {
+	Limit     int  `json:"limit"`
+	Used      int  `json:"used"`
+	Remaining int  `json:"remaining"`
+	Allowed   bool `json:"allowed"`
+}

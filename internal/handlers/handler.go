@@ -12,7 +12,6 @@ import (
 	"shb/internal/configs"
 	"shb/internal/models"
 	"shb/internal/repositories/filters"
-	"shb/internal/services"
 	"shb/pkg/constants"
 	"shb/pkg/external/sms/smsProvider"
 	"shb/pkg/metrics"
@@ -21,7 +20,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -101,8 +99,8 @@ type IService interface {
 	RefreshTokens(ctx context.Context, refreshToken string) (*models.TokenResponse, error)
 	RevokeAllUserRefreshTokens(ctx context.Context, userID int) error
 
-	// UpdateProfile partially updates the user's profile information (full name and/or phone).
-	UpdateProfile(ctx context.Context, userID int, req models.UpdateProfileRequest) error
+	// --- Beneficiaries ---
+	GetApplicationQuota(ctx context.Context) (*models.ApplicationQuota, error)
 }
 
 type OAuthProvider interface {
@@ -114,26 +112,10 @@ type OAuthProvider interface {
 
 // Handler holds all dependencies for the HTTP handler layer.
 type Handler struct {
-	service    IService
-	limiter    Limiter
-	middleware *middlewares.Middleware
-	metrics    *metrics.Metrics
-	logger     *zerolog.Logger
-	cfg        *configs.Config
-}
-
-// NewHandler constructs a Handler with all required dependencies injected.
-func NewHandler(service IService, limiter Limiter, middleware *middlewares.Middleware, m *metrics.Metrics, logger *zerolog.Logger, cfg *configs.Config) *Handler {
-	return &Handler{
-		service:    service,
-		limiter:    limiter,
-		middleware: middleware,
-		metrics:    m,
-		logger:     logger,
-		cfg:        cfg,
 	service        IService
 	limiter        Limiter
 	middleware     *middlewares.Middleware
+	metrics        *metrics.Metrics
 	logger         *zerolog.Logger
 	cfg            *configs.Config
 	oauthProviders []OAuthProvider
@@ -144,6 +126,7 @@ func NewHandler(
 	service IService,
 	limiter Limiter,
 	middleware *middlewares.Middleware,
+	m *metrics.Metrics,
 	logger *zerolog.Logger,
 	cfg *configs.Config,
 	oauthProviders ...OAuthProvider,
@@ -152,6 +135,7 @@ func NewHandler(
 		service:        service,
 		limiter:        limiter,
 		middleware:     middleware,
+		metrics:        m,
 		logger:         logger,
 		cfg:            cfg,
 		oauthProviders: oauthProviders,
@@ -181,12 +165,8 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		router.Use(h.metrics.Middleware())
 		router.GET(metrics.Endpoint(), h.metrics.Handler())
 	}
-	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), middlewares.PrometheusMiddleware())
-	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.AlertMiddleware())
-	router.Use(h.CORSMiddleware(), gin.RecoveryWithWriter(gin.DefaultWriter), h.RequestID(), h.middleware.LoggerMiddleware(), h.middleware.AlertMiddleware())
 	router.NoRoute(h.noRoute)
 
-	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	router.GET("/ping", h.ping)
 	router.GET("/healthz", h.healthz)
 	router.GET("/readyz", h.readyz)
@@ -235,9 +215,8 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		})
 		v1.GET("/me", h.middleware.AuthMiddleware(), h.getMe)
 		v1.PATCH("/me", h.middleware.AuthMiddleware(), h.updateProfile)
-		userHandler := NewUserHandler(h.service.(*services.Service))
-		v1.PATCH("/me", h.middleware.AuthMiddleware(), userHandler.UpdateProfile)
 		v1.GET("/stats", h.getStats)
+		v1.GET("/beneficiaries/quota", h.getApplicationQuota)
 		v1.GET("/sms/balance", h.middleware.AuthMiddleware(), h.getSMSBalance)
 
 		v1.GET("/institutions", h.getAllInstitutions)

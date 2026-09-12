@@ -5,18 +5,47 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"shb/internal/services"
+	"shb/internal/models"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 )
 
 type Repository struct {
-	services.IRepository
 	postgres *pgxpool.Pool
 	logger   *zerolog.Logger
+}
+
+func (r *Repository) CreateBeneficiary(ctx context.Context, b *models.Beneficiary) error {
+	if b == nil {
+		return errors.New("beneficiary is nil")
+	}
+	if b.UserID <= 0 {
+		return fmt.Errorf("invalid user_id: %d", b.UserID)
+	}
+	if b.FullName == "" {
+		return errors.New("full_name is required")
+	}
+
+	query := `
+		INSERT INTO beneficiaries
+		(user_id, full_name, birth_date, diagnosis, city, region, contact_phone, status)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		RETURNING id, created_at
+	`
+	if err := r.postgres.QueryRow(ctx, query,
+		b.UserID, b.FullName, b.BirthDate, b.Diagnosis,
+		b.City, b.Region, b.ContactPhone, b.Status,
+	).Scan(&b.ID, &b.CreatedAt); err != nil {
+		r.logger.Error().Err(err).Int("user_id", b.UserID).Msg("create beneficiary failed")
+		return fmt.Errorf("insert beneficiary: %w", err)
+	}
+
+	r.logger.Info().Int("beneficiary_id", b.ID).Int("user_id", b.UserID).Msg("beneficiary created")
+	return nil
 }
 
 func NewRepository(postgresConn *pgxpool.Pool, log *zerolog.Logger) *Repository {

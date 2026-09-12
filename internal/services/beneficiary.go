@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Siyovush Hamidov and The Hadaf Contributors
 package services
 
@@ -66,10 +66,7 @@ func (s *Service) CreateApplication(
 	}
 
 	// 3. Monthly quota
-	key := fmt.Sprintf(
-		"applications:pending:%s",
-		time.Now().Format("2006-01"),
-	)
+	key := applicationQuotaKey(time.Now())
 	count, err := s.getApplicationCount(ctx, key)
 	if err != nil {
 		return fmt.Errorf("get application count: %w", err)
@@ -100,6 +97,32 @@ func (s *Service) CreateApplication(
 		Int("beneficiary_id", req.ID).
 		Msg("beneficiary application created")
 	return nil
+}
+
+// GetApplicationQuota returns the current global monthly application capacity.
+// CreateApplication remains the authoritative enforcement point.
+func (s *Service) GetApplicationQuota(ctx context.Context) (*models.ApplicationQuota, error) {
+	used, err := s.getApplicationCount(ctx, applicationQuotaKey(time.Now()))
+	if err != nil {
+		return nil, fmt.Errorf("get application count: %w", err)
+	}
+
+	limit := s.cfg.MaxPendingApplications
+	remaining := limit - used
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return &models.ApplicationQuota{
+		Limit:     limit,
+		Used:      used,
+		Remaining: remaining,
+		Allowed:   used < limit,
+	}, nil
+}
+
+func applicationQuotaKey(now time.Time) string {
+	return fmt.Sprintf("applications:pending:%s", now.Format("2006-01"))
 }
 
 // calculateAge returns full years.
