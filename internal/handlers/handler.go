@@ -101,6 +101,9 @@ type IService interface {
 
 	// --- Beneficiaries ---
 	GetApplicationQuota(ctx context.Context) (*models.ApplicationQuota, error)
+
+	// --- Donations ---
+	GetMyDonations(ctx context.Context, userID, limit, offset int) (*models.DonationHistoryPage, error)
 }
 
 type OAuthProvider interface {
@@ -218,6 +221,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		v1.GET("/stats", h.getStats)
 		v1.GET("/beneficiaries/quota", h.getApplicationQuota)
 		v1.GET("/sms/balance", h.middleware.AuthMiddleware(), h.getSMSBalance)
+		v1.GET("/donations/my", h.middleware.AuthMiddleware(), h.getMyDonations)
 
 		v1.GET("/institutions", h.getAllInstitutions)
 		v1.GET("/institutions/:id", h.getInstitutionByID)
