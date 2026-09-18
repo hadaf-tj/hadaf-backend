@@ -1290,6 +1290,46 @@ func (_c *MockIService_GetInstitutionEvents_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// GetMyDonations provides a mock function with given fields: ctx, userID, limit, offset
+func (_m *MockIService) GetMyDonations(ctx context.Context, userID int, limit int, offset int) (*models.DonationHistoryPage, error) {
+	ret := _m.Called(ctx, userID, limit, offset)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMyDonations")
+	}
+
+	var r0 *models.DonationHistoryPage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, int) (*models.DonationHistoryPage, error)); ok {
+		return rf(ctx, userID, limit, offset)
+	}
+	if ret.Get(0) != nil {
+		r0 = ret.Get(0).(*models.DonationHistoryPage)
+	}
+	r1 = ret.Error(1)
+
+	return r0, r1
+}
+
+// MockIService_GetMyDonations_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMyDonations'
+type MockIService_GetMyDonations_Call struct {
+	*mock.Call
+}
+
+// GetMyDonations is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID int
+//   - limit int
+//   - offset int
+func (_e *MockIService_Expecter) GetMyDonations(ctx interface{}, userID interface{}, limit interface{}, offset interface{}) *MockIService_GetMyDonations_Call {
+	return &MockIService_GetMyDonations_Call{Call: _e.mock.On("GetMyDonations", ctx, userID, limit, offset)}
+}
+
+func (_c *MockIService_GetMyDonations_Call) Return(_a0 *models.DonationHistoryPage, _a1 error) *MockIService_GetMyDonations_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
 // GetNeedByID provides a mock function with given fields: ctx, id
 func (_m *MockIService) GetNeedByID(ctx context.Context, id int) (*models.Need, error) {
 	ret := _m.Called(ctx, id)

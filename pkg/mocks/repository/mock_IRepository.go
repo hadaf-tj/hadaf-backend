@@ -1075,6 +1075,46 @@ func (_c *MockIRepository_GetBookingsByUser_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// GetDonationsByUser provides a mock function with given fields: ctx, userID, limit, offset
+func (_m *MockIRepository) GetDonationsByUser(ctx context.Context, userID int, limit int, offset int) (*models.DonationHistoryPage, error) {
+	ret := _m.Called(ctx, userID, limit, offset)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDonationsByUser")
+	}
+
+	var r0 *models.DonationHistoryPage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, int) (*models.DonationHistoryPage, error)); ok {
+		return rf(ctx, userID, limit, offset)
+	}
+	if ret.Get(0) != nil {
+		r0 = ret.Get(0).(*models.DonationHistoryPage)
+	}
+	r1 = ret.Error(1)
+
+	return r0, r1
+}
+
+// MockIRepository_GetDonationsByUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDonationsByUser'
+type MockIRepository_GetDonationsByUser_Call struct {
+	*mock.Call
+}
+
+// GetDonationsByUser is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID int
+//   - limit int
+//   - offset int
+func (_e *MockIRepository_Expecter) GetDonationsByUser(ctx interface{}, userID interface{}, limit interface{}, offset interface{}) *MockIRepository_GetDonationsByUser_Call {
+	return &MockIRepository_GetDonationsByUser_Call{Call: _e.mock.On("GetDonationsByUser", ctx, userID, limit, offset)}
+}
+
+func (_c *MockIRepository_GetDonationsByUser_Call) Return(_a0 *models.DonationHistoryPage, _a1 error) *MockIRepository_GetDonationsByUser_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
 // GetEventByID provides a mock function with given fields: ctx, id
 func (_m *MockIRepository) GetEventByID(ctx context.Context, id int) (*models.Event, error) {
 	ret := _m.Called(ctx, id)
