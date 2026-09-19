@@ -13,6 +13,17 @@ import (
 )
 
 type Config struct {
+	App      AppConfig
+	Security SecurityConfig
+	Database DatabaseConfig
+	Logger   LoggerConfig
+	SMS      SMSConfig
+	Telegram TelegramConfig
+	SMTP     SMTPConfig
+	Server   ServerConfig
+	Service  ServiceConfig
+	Redis    RedisConfig
+	Minio    MinioConfig
 	App         AppConfig
 	Security    SecurityConfig
 	Database    DatabaseConfig
